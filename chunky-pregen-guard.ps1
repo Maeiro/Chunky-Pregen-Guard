@@ -93,7 +93,7 @@ if ([string]::IsNullOrWhiteSpace($ServerRoot)) {
 }
 
 if ([string]::IsNullOrWhiteSpace($ServerRoot)) {
-    throw "Nao foi possivel detectar automaticamente a pasta do servidor. Execute o launcher dentro da pasta do server ou use -ServerRoot."
+    throw "Could not automatically detect the server folder. Run the launcher inside the server folder or use -ServerRoot."
 }
 
 $targetScript = Ensure-CoreScript -RootPath $ServerRoot
@@ -215,17 +215,17 @@ $i18n = @{
     }
 }
 
-$currentLang = "pt-BR"
+$currentLang = "en-US"
 function T {
     param([string]$k)
     $langPack = $null
     if ($i18n.ContainsKey($currentLang)) {
         $langPack = $i18n[$currentLang]
     } else {
-        $langPack = $i18n["pt-BR"]
+        $langPack = $i18n["en-US"]
     }
     if ($langPack.ContainsKey($k)) { return [string]$langPack[$k] }
-    if ($i18n["en-US"].ContainsKey($k)) { return [string]$i18n["en-US"][$k] }
+    if ($i18n["pt-BR"].ContainsKey($k)) { return [string]$i18n["pt-BR"][$k] }
     return $k
 }
 function Tf { param([string]$k, [object[]]$a) $t = T $k; if ($null -eq $a -or $a.Count -eq 0) { return $t }; return [string]::Format($t, $a) }
@@ -821,9 +821,9 @@ $langCombo = New-Object System.Windows.Forms.ComboBox
 $langCombo.Width = 170
 $langCombo.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
 Set-ComboOptions -Combo $langCombo -Items @(
-    @{ Display = "Portuguese (Brazil)"; Value = "pt-BR" },
-    @{ Display = "English"; Value = "en-US" }
-) -SelectedValue "pt-BR"
+    @{ Display = "English"; Value = "en-US" },
+    @{ Display = "Portuguese (Brazil)"; Value = "pt-BR" }
+) -SelectedValue "en-US"
 
 $btnRecommended = New-Object System.Windows.Forms.Button
 $btnRecommended.AutoSize = $true
@@ -1024,7 +1024,7 @@ $btnStart.Add_Click({
         $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Normal
         $startedProc = [System.Diagnostics.Process]::Start($psi)
         if ($null -eq $startedProc) {
-            throw "Processo do supervisor nao foi iniciado."
+            throw "Supervisor process did not start."
         }
         Write-LauncherLog "Process started. PID=$($startedProc.Id)"
 
