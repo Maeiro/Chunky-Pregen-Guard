@@ -7,13 +7,12 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$rootDir = (Resolve-Path (Join-Path $scriptDir "..")).Path
 $toolsDir = Join-Path $scriptDir "tools\ps2exe"
 $distDir = Join-Path $scriptDir "dist"
 $packageDir = Join-Path $distDir "ChunkyPregenGuard"
 $inputFile = Join-Path $scriptDir "chunky-pregen-guard.ps1"
 $outputExe = Join-Path $packageDir "ChunkyPregenGuard.exe"
-$iconFile = Join-Path $rootDir "wems-logo.ico"
+$iconFile = Join-Path $scriptDir "chunky-pregen-guard.ico"
 $readmeFile = Join-Path $scriptDir "README.md"
 $runBat = Join-Path $packageDir "Run-ChunkyPregenGuard.bat"
 $zipFile = Join-Path $distDir "ChunkyPregenGuard-package.zip"
