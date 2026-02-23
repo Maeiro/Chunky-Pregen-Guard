@@ -18,14 +18,8 @@ function Ensure-CoreScript {
     $content = Get-EmbeddedCoreScript
 
     if (Test-Path -Path $corePath) {
-        $existing = Get-Content -Path $corePath -Raw -ErrorAction SilentlyContinue
-        if ($existing -match '(?m)^\s*#\s*CPG_USER_MANAGED\b') {
-            return $corePath
-        }
-        if ($existing -ne $content) {
-            try { Copy-Item -Path $corePath -Destination "$corePath.bak" -Force } catch {}
-            Set-Content -Path $corePath -Value $content -Encoding UTF8
-        }
+        # Never overwrite an existing server script automatically.
+        # This prevents wiping user/custom fixes when launching the GUI.
         return $corePath
     }
 
