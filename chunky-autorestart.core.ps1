@@ -292,6 +292,40 @@ function Stop-ManagedJavaProcesses {
     return $stoppedCount
 }
 
+function Cleanup-ResidualManagedJava {
+    param(
+        [string]$Context = "ResidualCleanup",
+        [int]$WaitSeconds = 6
+    )
+
+    $waitUntil = (Get-Date).AddSeconds([Math]::Max(0, $WaitSeconds))
+    while ((Get-Date) -lt $waitUntil) {
+        $stillRunning = @(Get-ManagedJavaProcesses)
+        if (@($stillRunning).Count -eq 0) {
+            return
+        }
+        Start-Sleep -Milliseconds 500
+    }
+
+    $residual = @(Get-ManagedJavaProcesses)
+    if (@($residual).Count -eq 0) {
+        return
+    }
+
+    $pidList = ($residual | ForEach-Object { $_.Id }) -join ","
+    Write-Log "${Context}: residual managed Java detected ($pidList). Forcing cleanup."
+    $null = Stop-ManagedJavaProcesses -Processes $residual -ManualCleanup
+    Start-Sleep -Seconds 1
+
+    $afterForce = @(Get-ManagedJavaProcesses)
+    if (@($afterForce).Count -gt 0) {
+        $stillList = ($afterForce | ForEach-Object { $_.Id }) -join ","
+        Write-Log "${Context}: residual managed Java still running after force cleanup ($stillList)."
+    } else {
+        Write-Log "${Context}: residual managed Java cleanup successful."
+    }
+}
+
 function Start-Server {
     if ([string]::IsNullOrWhiteSpace($resolvedWinArgsFile)) {
         throw "Forge win_args.txt file not found."
@@ -485,7 +519,10 @@ function Graceful-Stop {
     if (-not $proc.WaitForExit($graceSeconds * 1000)) {
         Write-Log "Graceful stop exceeded timeout of ${graceSeconds}s. Forcing shutdown."
         Write-Log "ShutdownPhase: force_kill"
-        try { $proc.Kill($true) } catch {}
+        $forceOk = Stop-ProcessForceSafe -ProcessId $proc.Id -LogMessage "ShutdownPhase: force_kill PID=$($proc.Id)"
+        if (-not $forceOk) {
+            Write-Log "Force kill did not confirm process exit (PID=$($proc.Id))."
+        }
     }
 }
 
@@ -601,6 +638,7 @@ try {
             Clear-ManagedPidFile
             Cleanup-Events -serverState $server
             Start-Sleep -Seconds 10
+            Cleanup-ResidualManagedJava -Context "RestartAfterExit"
 
             $server = Start-Server
             $script:ManagedServerState = $server
@@ -656,6 +694,7 @@ try {
             Graceful-Stop -serverState $server -Reason $reason
             Clear-ManagedPidFile
             Cleanup-Events -serverState $server
+            Cleanup-ResidualManagedJava -Context "PostStopBeforeRestart"
 
             Write-Log "Restarting server in 10 s."
             Start-Sleep -Seconds 10
