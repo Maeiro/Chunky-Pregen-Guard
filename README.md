@@ -2,7 +2,12 @@
 
 Chunky Pregen Guard is a small powershell app to run Chunky pre-generation more safely on modded servers that may hit memory spikes or OOM (`OutOfMemoryError`).
 
-Main usage mode:`r`n- GUI (simple setup + one-click start).`r`n`r`nSingle-file behavior:`r`n- You can use only `ChunkyPregenGuard.exe` in your server folder.`r`n- If required files are missing, the app creates them automatically (for example `chunky-autorestart.ps1`).
+Main usage mode:
+- GUI (simple setup + one-click start).
+
+Single-file behavior:
+- You can use only `ChunkyPregenGuard.exe` in your server folder.
+- If required files are missing, the app creates them automatically (for example `chunky-autorestart.ps1`).
 
 Advanced/alternative mode:
 - Direct PowerShell script execution.
