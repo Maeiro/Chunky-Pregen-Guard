@@ -119,5 +119,6 @@ This mode force-stops matching Guard/server processes and removes stale lock/pid
   - run script mode (`start-chunky-pregen-guard.bat`) or add local exception.
 
 ## License
-MIT. See `LICENSE`.
+GNU GPL v3. See `LICENSE`.
+
 
