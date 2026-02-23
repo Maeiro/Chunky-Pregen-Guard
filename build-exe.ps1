@@ -11,11 +11,15 @@ $toolsDir = Join-Path $scriptDir "tools\ps2exe"
 $distDir = Join-Path $scriptDir "dist"
 $packageDir = Join-Path $distDir "ChunkyPregenGuard"
 $inputFile = Join-Path $scriptDir "chunky-pregen-guard.ps1"
+$coreTemplateFile = Join-Path $scriptDir "chunky-autorestart.core.ps1"
+$buildDir = Join-Path $distDir "_build"
+$injectedInputFile = Join-Path $buildDir "chunky-pregen-guard.inlined.ps1"
 $outputExe = Join-Path $packageDir "ChunkyPregenGuard.exe"
 $iconFile = Join-Path $scriptDir "chunky-pregen-guard.ico"
 $readmeFile = Join-Path $scriptDir "README.md"
 $runBat = Join-Path $packageDir "Run-ChunkyPregenGuard.bat"
 $zipFile = Join-Path $distDir "ChunkyPregenGuard-package.zip"
+$corePlaceholder = "__CORE_B64__"
 
 function Write-Step {
     param([string]$Message)
@@ -45,6 +49,9 @@ function Ensure-Ps2ExeLocal {
 if (-not (Test-Path -Path $inputFile)) {
     throw "Input script not found: $inputFile"
 }
+if (-not (Test-Path -Path $coreTemplateFile)) {
+    throw "Core template not found: $coreTemplateFile"
+}
 
 if ($Clean -and (Test-Path -Path $distDir)) {
     Write-Step "Cleaning dist folder..."
@@ -57,6 +64,23 @@ if (-not (Test-Path -Path $distDir)) {
 if (-not (Test-Path -Path $packageDir)) {
     New-Item -ItemType Directory -Path $packageDir -Force | Out-Null
 }
+if (-not (Test-Path -Path $buildDir)) {
+    New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
+}
+
+Write-Step "Injecting core script into launcher..."
+$launcherSource = Get-Content -Path $inputFile -Raw -Encoding UTF8
+if ($launcherSource -notmatch [regex]::Escape($corePlaceholder)) {
+    throw "Placeholder not found in launcher source: $corePlaceholder"
+}
+$coreSource = Get-Content -Path $coreTemplateFile -Raw -Encoding UTF8
+$coreB64 = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($coreSource))
+$assignmentPlaceholder = "`$embeddedCoreB64 = `"$corePlaceholder`""
+if ($launcherSource -notmatch [regex]::Escape($assignmentPlaceholder)) {
+    throw "Embedded core assignment placeholder not found: $assignmentPlaceholder"
+}
+$launcherInlined = $launcherSource.Replace($assignmentPlaceholder, "`$embeddedCoreB64 = `"$coreB64`"")
+Set-Content -Path $injectedInputFile -Value $launcherInlined -Encoding UTF8
 
 Ensure-Ps2ExeLocal
 
@@ -64,7 +88,7 @@ $modulePath = Join-Path $toolsDir "ps2exe.psm1"
 Import-Module $modulePath -Force
 
 $compileParams = @{
-    inputFile   = $inputFile
+    inputFile   = $injectedInputFile
     outputFile  = $outputExe
     noConsole   = $true
     STA         = $true
