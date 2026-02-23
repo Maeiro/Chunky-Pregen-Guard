@@ -153,6 +153,10 @@ $i18n = @{
         m_start_runtime_fail="O supervisor iniciou, mas o servidor nao concluiu a inicializacao."
         m_start_runtime_hint="Verifique os logs do servidor para identificar o erro."
         m_start_uncertain="O supervisor iniciou, mas o startup ainda nao foi confirmado. Verifique os logs do servidor."
+        s_ready="Pronto."
+        s_starting="Iniciando supervisor..."
+        s_started="Supervisor iniciado (PID={0}). Acompanhe no terminal do Guard."
+        s_started_jvm="Supervisor iniciado (PID={0}). user_jvm_args.txt atualizado com {1} linhas."
     }
     "en-US" = @{
         form="Chunky Pregen Guard (Test)"
@@ -204,6 +208,10 @@ $i18n = @{
         m_start_runtime_fail="Supervisor started, but server startup did not complete."
         m_start_runtime_hint="Please check the server logs to identify the error."
         m_start_uncertain="Supervisor started, but startup was not confirmed yet. Please check server logs."
+        s_ready="Ready."
+        s_starting="Starting supervisor..."
+        s_started="Supervisor started (PID={0}). Follow progress in the Guard terminal."
+        s_started_jvm="Supervisor started (PID={0}). user_jvm_args.txt updated with {1} lines."
     }
 }
 
@@ -759,6 +767,9 @@ function Apply-Language {
     $btnSaveBat.Text = T "save"
     $btnRefresh.Text = T "prev"
     $systemRamLabel.Text = Tf "sysram" @($systemRamGB)
+    if ([string]::IsNullOrWhiteSpace($statusLabel.Text)) {
+        $statusLabel.Text = T "s_ready"
+    }
 
     foreach ($row in $rowRegistry) {
         $row.LabelControl.Text = T $row.LabelKey
@@ -926,7 +937,11 @@ $btnPanel.Margin = New-Object System.Windows.Forms.Padding(10, 0, 10, 10)
 $btnStart = New-Object System.Windows.Forms.Button; $btnStart.AutoSize = $true
 $btnSaveBat = New-Object System.Windows.Forms.Button; $btnSaveBat.AutoSize = $true
 $btnRefresh = New-Object System.Windows.Forms.Button; $btnRefresh.AutoSize = $true
-[void]$btnPanel.Controls.Add($btnStart); [void]$btnPanel.Controls.Add($btnSaveBat); [void]$btnPanel.Controls.Add($btnRefresh)
+$statusLabel = New-Object System.Windows.Forms.Label
+$statusLabel.AutoSize = $true
+$statusLabel.Margin = New-Object System.Windows.Forms.Padding(16, 8, 3, 3)
+$statusLabel.ForeColor = [System.Drawing.Color]::DimGray
+[void]$btnPanel.Controls.Add($btnStart); [void]$btnPanel.Controls.Add($btnSaveBat); [void]$btnPanel.Controls.Add($btnRefresh); [void]$btnPanel.Controls.Add($statusLabel)
 
 $launcherScriptPath = $targetScript
 
@@ -974,7 +989,8 @@ $btnRefresh.Add_Click({ Update-Preview })
 $btnStart.Add_Click({
     try {
         if (-not (Validate-Inputs -ui $ui)) { return }
-        $launchStart = Get-Date
+        $statusLabel.ForeColor = [System.Drawing.Color]::DimGray
+        $statusLabel.Text = T "s_starting"
 
         $jvmResult = $null
         if ($ui.ApplyJvmArgs.Checked) {
@@ -1000,48 +1016,27 @@ $btnStart.Add_Click({
         $argLine = $quotedArgs -join " "
 
         Write-LauncherLog "Start requested. ArgLine=$argLine"
-        $startedProc = Start-Process -FilePath "powershell.exe" -ArgumentList $argLine -WorkingDirectory $ServerRoot -PassThru
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = "powershell.exe"
+        $psi.Arguments = $argLine
+        $psi.WorkingDirectory = $ServerRoot
+        $psi.UseShellExecute = $true
+        $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Normal
+        $startedProc = [System.Diagnostics.Process]::Start($psi)
+        if ($null -eq $startedProc) {
+            throw "Processo do supervisor nao foi iniciado."
+        }
         Write-LauncherLog "Process started. PID=$($startedProc.Id)"
-        Start-Sleep -Seconds 3
 
-        if ($startedProc.HasExited) {
-            Write-LauncherLog "Process exited quickly. PID=$($startedProc.Id) ExitCode=$($startedProc.ExitCode)"
-            $logPath = Join-Path $ServerRoot $ui.LogFile.Text
-            $tail = ""
-            if (Test-Path -Path $logPath) {
-                $tail = (Get-Content -Path $logPath -Tail 8 -ErrorAction SilentlyContinue) -join "`r`n"
-            }
-            $msg = "O processo do supervisor fechou logo apos iniciar (PID=$($startedProc.Id), ExitCode=$($startedProc.ExitCode))."
-            if (-not [string]::IsNullOrWhiteSpace($tail)) {
-                $msg = $msg + "`r`n`r`nUltimas linhas do log:`r`n" + $tail
-            } else {
-                $msg = $msg + "`r`n`r`nVerifique o console aberto e o arquivo de log configurado."
-            }
-            [System.Windows.Forms.MessageBox]::Show($msg, (T "e"), "OK", "Error") | Out-Null
-            return
-        }
-
-        $diagTimeout = [math]::Max(55, [int]$ui.StartupDelaySec.Value + 20)
-        $diag = Wait-StartupDiagnosis -RootPath $ServerRoot -SupervisorLogRel $ui.LogFile.Text -Since $launchStart -TimeoutSec $diagTimeout
-        if ($diag.Status -eq "runtime_failure") {
-            Write-LauncherLog "Runtime failure detected after launch. PID=$($startedProc.Id)"
-            $msg = (T "m_start_runtime_fail") + "`r`n" + (T "m_start_runtime_hint")
-            [System.Windows.Forms.MessageBox]::Show($msg, (T "e"), "OK", "Error") | Out-Null
-            return
-        }
-        if ($diag.Status -eq "unknown") {
-            Write-LauncherLog "Startup status uncertain after timeout. PID=$($startedProc.Id)"
-            $msg = (T "m_start_uncertain")
-            [System.Windows.Forms.MessageBox]::Show($msg, (T "w"), "OK", "Warning") | Out-Null
-            return
-        }
-
+        $statusLabel.ForeColor = [System.Drawing.Color]::DarkGreen
         if ($null -ne $jvmResult) {
-            [System.Windows.Forms.MessageBox]::Show((Tf "m_startj" @($jvmResult.LineCount)), (T "ok"), "OK", "Information") | Out-Null
+            $statusLabel.Text = Tf "s_started_jvm" @($startedProc.Id, $jvmResult.LineCount)
         } else {
-            [System.Windows.Forms.MessageBox]::Show((T "m_start"), (T "ok"), "OK", "Information") | Out-Null
+            $statusLabel.Text = Tf "s_started" @($startedProc.Id)
         }
     } catch {
+        $statusLabel.ForeColor = [System.Drawing.Color]::Firebrick
+        $statusLabel.Text = Tf "m_startf" @($_.Exception.Message)
         [System.Windows.Forms.MessageBox]::Show((Tf "m_startf" @($_.Exception.Message)), (T "e"), "OK", "Error") | Out-Null
     }
 })
