@@ -1,0 +1,25 @@
+# Build output
+dist/
+
+# Tooling cache / downloaded modules
+tools/
+
+# Logs
+logs/
+*.log
+
+# Archives / packages
+*.zip
+
+# Temp / OS
+*.tmp
+*.temp
+Thumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+
+# PowerShell history
+*.ps1xml
