@@ -1,10 +1,11 @@
 ﻿# Chunky Pregen Guard
 
-Chunky Pregen Guard is a **PowerShell-first** project for running Chunky pre-generation more safely in modded servers that may hit memory spikes or OOM (`OutOfMemoryError`).
+Chunky Pregen Guard is a small powershell app to run Chunky pre-generation more safely on modded servers that may hit memory spikes or OOM (`OutOfMemoryError`).
 
-It has two usage modes:
-- Script mode (core automation via PowerShell).
-- Optional GUI mode (easy configuration + launch).
+Main usage mode:`r`n- GUI (simple setup + one-click start).`r`n`r`nSingle-file behavior:`r`n- You can use only `ChunkyPregenGuard.exe` in your server folder.`r`n- If required files are missing, the app creates them automatically (for example `chunky-autorestart.ps1`).
+
+Advanced/alternative mode:
+- Direct PowerShell script execution.
 
 ## Why This Exists
 Chunky pre-generation can cause aggressive memory growth in some modpacks, especially with problematic worldgen mods.
@@ -37,27 +38,18 @@ Important runtime dependency:
 - Command preview and `.bat` export.
 - Startup diagnostics/log hints.
 
-## Recommended Starting Configs
-Use these as a baseline and tune with real logs.
-
-| System RAM | JVM `-Xms` / `-Xmx` | Soft / Hard / PreWarn (GB) | Notes |
-|---|---|---|---|
-| 16 GB | `-Xms4G -Xmx10G` | `8.3 / 9.2 / 7.3` | Prefer `Balanced` or `Low RAM`. |
-| 24 GB | `-Xms5G -Xmx13G` | `10.8 / 12.0 / 9.5` | Good default for mixed modpacks. |
-| 32 GB | `-Xms6G -Xmx16G` | `13.3 / 14.7 / 11.7` | Usually stable for longer pregen sessions. |
-| 64 GB | `-Xms10G -Xmx24G` | `19.9 / 22.1 / 17.5` | Start with `Balanced`; try `Aggressive` if stable. |
-
-Default operational suggestions:
-- `CheckIntervalSec=30`
-- `AdaptiveLeadMinMinutes=2`
-- `AdaptiveLeadMaxMinutes=4`
-- `ProjectionMinRamPrivateGB=14`
-- `TrendSourceMode=hybrid`
-
 ## Requirements
 - Windows PowerShell 5.1+.
-- `chunky-autorestart.ps1` present in the server folder.
+- `ChunkyPregenGuard.exe` present in the server folder.
 - Forge/Fabric runtime files valid in server root (`run.bat`, `win_args.txt`, etc., depending on your stack).
+
+## Usage (EXE GUI - Recommended)
+1. Open:
+- `dist/ChunkyPregenGuard/ChunkyPregenGuard.exe`
+- or `dist/ChunkyPregenGuard/Run-ChunkyPregenGuard.bat`
+2. Configure and click `Start Server`.
+
+If you move only the EXE, ensure it still points to the correct server folder containing `chunky-autorestart.ps1`.
 
 ## Usage (Script GUI)
 1. Run:
@@ -71,14 +63,6 @@ Optional custom root:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -STA -File .\chunky-pregen-guard.ps1 -ServerRoot "C:\path\to\server"
 ```
-
-## Usage (EXE GUI)
-1. Open:
-- `dist/ChunkyPregenGuard/ChunkyPregenGuard.exe`
-- or `dist/ChunkyPregenGuard/Run-ChunkyPregenGuard.bat`
-2. Configure and click `Start Server`.
-
-If you move only the EXE, ensure it still points to the correct server folder containing `chunky-autorestart.ps1`.
 
 ## Build EXE
 ```powershell
@@ -120,3 +104,4 @@ If startup fails:
 
 ## License
 MIT. See `LICENSE`.
+
