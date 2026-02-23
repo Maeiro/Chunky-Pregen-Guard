@@ -156,7 +156,7 @@ $i18n = @{
         head="Preencha as configuracoes abaixo. Se preferir, clique em Aplicar Recomendado e depois em Iniciar Servidor."
         lang="Idioma:"
         tab1="Basico"; tab2="Avancado"; tab3="Java/JVM"
-        rec="Aplicar Recomendado"; start="Iniciar Servidor"; save="Gerar .bat com estas Configs"; prev="Atualizar Preview"
+        rec="Aplicar Recomendado"; start="Iniciar Servidor"; stoprun="Parar Guard/Servidor Ativos"; save="Gerar .bat com estas Configs"; prev="Atualizar Preview"
         sysram="RAM total detectada: {0} GB"
         cmd="Comando que sera executado:"; jvmp="Conteudo de user_jvm_args.txt que sera aplicado:"; jvmd="(desativado: o arquivo de JVM nao sera alterado)"
         c_gui="Mostrar janela do servidor"; c_brd="Enviar avisos no chat"; c_proj="Usar previsao de memoria"; c_clean="Parar processos antigos no inicio"; c_jvm="Atualizar user_jvm_args.txt antes de iniciar"
@@ -197,12 +197,16 @@ $i18n = @{
         m_soft="O limite Soft deve ser menor que o limite Hard."; m_prew="O inicio de pre-aviso (RAM_WS) deve ser menor que o limite Hard."
         m_start="Servidor iniciado em uma nova janela do PowerShell."; m_startj="Servidor iniciado. user_jvm_args.txt atualizado com {0} linhas."
         m_startf="Falha ao iniciar o servidor: {0}"; m_bat=".bat salvo com sucesso."; m_batf="Falha ao salvar o .bat: {0}"
+        m_clean_ok="Limpeza concluida. Veja os logs para confirmar os PIDs encerrados."
+        m_cleanf="Falha ao executar limpeza: {0}"
         m_rec="Configuracoes recomendadas aplicadas para {0} GB de RAM total."; m_recf="Falha ao aplicar configuracoes recomendadas: {0}"; m_jvmf="Falha ao atualizar user_jvm_args.txt: {0}"
         m_start_runtime_fail="O supervisor iniciou, mas o servidor nao concluiu a inicializacao."
         m_start_runtime_hint="Verifique os logs do servidor para identificar o erro."
         m_start_uncertain="O supervisor iniciou, mas o startup ainda nao foi confirmado. Verifique os logs do servidor."
         s_ready="Pronto."
         s_starting="Iniciando supervisor..."
+        s_cleaning="Executando limpeza de processos..."
+        s_cleaned="Limpeza concluida."
         s_started="Supervisor iniciado (PID={0}). Acompanhe no terminal do Guard."
         s_started_jvm="Supervisor iniciado (PID={0}). user_jvm_args.txt atualizado com {1} linhas."
     }
@@ -211,7 +215,7 @@ $i18n = @{
         head="Fill the settings below. If you prefer, click Apply Recommended first, then Start Server."
         lang="Language:"
         tab1="Basic"; tab2="Advanced"; tab3="Java/JVM"
-        rec="Apply Recommended"; start="Start Server"; save="Generate .bat with These Settings"; prev="Refresh Preview"
+        rec="Apply Recommended"; start="Start Server"; stoprun="Stop Running Guard/Server"; save="Generate .bat with These Settings"; prev="Refresh Preview"
         sysram="Detected total RAM: {0} GB"
         cmd="Command that will run:"; jvmp="Content of user_jvm_args.txt that will be applied:"; jvmd="(disabled: JVM file will not be changed)"
         c_gui="Show server window"; c_brd="Send chat warnings"; c_proj="Use memory prediction"; c_clean="Stop old processes at startup"; c_jvm="Update user_jvm_args.txt before start"
@@ -252,12 +256,16 @@ $i18n = @{
         m_soft="Soft limit must be lower than Hard limit."; m_prew="Pre-warning RAM_WS must be lower than Hard limit."
         m_start="Server started in a new PowerShell window."; m_startj="Server started. user_jvm_args.txt updated with {0} lines."
         m_startf="Failed to start server: {0}"; m_bat=".bat saved successfully."; m_batf="Failed to save .bat: {0}"
+        m_clean_ok="Cleanup completed. Check logs for terminated PID entries."
+        m_cleanf="Failed to run cleanup: {0}"
         m_rec="Recommended settings applied for {0} GB of total RAM."; m_recf="Failed to apply recommended settings: {0}"; m_jvmf="Failed to update user_jvm_args.txt: {0}"
         m_start_runtime_fail="Supervisor started, but server startup did not complete."
         m_start_runtime_hint="Please check the server logs to identify the error."
         m_start_uncertain="Supervisor started, but startup was not confirmed yet. Please check server logs."
         s_ready="Ready."
         s_starting="Starting supervisor..."
+        s_cleaning="Running process cleanup..."
+        s_cleaned="Cleanup completed."
         s_started="Supervisor started (PID={0}). Follow progress in the Guard terminal."
         s_started_jvm="Supervisor started (PID={0}). user_jvm_args.txt updated with {1} lines."
     }
@@ -715,6 +723,11 @@ function Write-JvmArgsFile {
 function Get-ArgumentPairs {
     param($ui)
     $trend = Get-ComboSelectedValue -Combo $ui.TrendSourceMode -DefaultValue "hybrid"
+    $managedPidFile = "logs/chunky-autorestart.server.pid"
+    $lockDir = Split-Path -Path $ui.LockFile.Text -Parent
+    if (-not [string]::IsNullOrWhiteSpace($lockDir)) {
+        $managedPidFile = (Join-Path $lockDir "chunky-autorestart.server.pid")
+    }
     return @(
         @("MaxMemoryGB", [string][double]$ui.MaxMemoryGB.Value),
         @("HardMemoryGB", [string][double]$ui.HardMemoryGB.Value),
@@ -738,6 +751,7 @@ function Get-ArgumentPairs {
         @("ResumeCommands", $ui.ResumeCommands.Text),
         @("LogFile", $ui.LogFile.Text),
         @("LockFile", $ui.LockFile.Text),
+        @("ManagedPidFile", $managedPidFile),
         @("StopExistingServer", $(if ($ui.StopExistingServer.Checked) { "1" } else { "0" }))
     )
 }
@@ -749,6 +763,16 @@ function Get-ArgumentData {
     $args.Add("-NoProfile"); $args.Add("-ExecutionPolicy"); $args.Add("Bypass"); $args.Add("-File"); $args.Add($ScriptPath)
     foreach ($p in $pairs) { $args.Add("-$($p[0])"); $args.Add([string]$p[1]) }
     if ($ui.GuiMode.Checked) { $args.Add("-GuiMode") }
+    return $args
+}
+
+function Get-CleanupArgumentData {
+    param($ui, [string]$ScriptPath)
+    $baseArgs = @(Get-ArgumentData -ui $ui -ScriptPath $ScriptPath)
+    $args = New-Object System.Collections.Generic.List[string]
+    foreach ($a in $baseArgs) { $args.Add([string]$a) }
+    $args.Add("-CleanupOnly")
+    $args.Add("1")
     return $args
 }
 
@@ -822,6 +846,7 @@ function Apply-Language {
     $lblLanguage.Text = T "lang"
     $btnRecommended.Text = T "rec"
     $btnStart.Text = T "start"
+    $btnStopRunning.Text = T "stoprun"
     $btnSaveBat.Text = T "save"
     $btnRefresh.Text = T "prev"
     $systemRamLabel.Text = Tf "sysram" @($systemRamGB)
@@ -993,13 +1018,14 @@ $btnPanel.Margin = New-Object System.Windows.Forms.Padding(10, 0, 10, 10)
 [void]$root.Controls.Add($btnPanel, 0, 4)
 
 $btnStart = New-Object System.Windows.Forms.Button; $btnStart.AutoSize = $true
+$btnStopRunning = New-Object System.Windows.Forms.Button; $btnStopRunning.AutoSize = $true
 $btnSaveBat = New-Object System.Windows.Forms.Button; $btnSaveBat.AutoSize = $true
 $btnRefresh = New-Object System.Windows.Forms.Button; $btnRefresh.AutoSize = $true
 $statusLabel = New-Object System.Windows.Forms.Label
 $statusLabel.AutoSize = $true
 $statusLabel.Margin = New-Object System.Windows.Forms.Padding(16, 8, 3, 3)
 $statusLabel.ForeColor = [System.Drawing.Color]::DimGray
-[void]$btnPanel.Controls.Add($btnStart); [void]$btnPanel.Controls.Add($btnSaveBat); [void]$btnPanel.Controls.Add($btnRefresh); [void]$btnPanel.Controls.Add($statusLabel)
+[void]$btnPanel.Controls.Add($btnStart); [void]$btnPanel.Controls.Add($btnStopRunning); [void]$btnPanel.Controls.Add($btnSaveBat); [void]$btnPanel.Controls.Add($btnRefresh); [void]$btnPanel.Controls.Add($statusLabel)
 
 $launcherScriptPath = $targetScript
 
@@ -1044,6 +1070,57 @@ $btnRecommended.Add_Click({
 })
 
 $btnRefresh.Add_Click({ Update-Preview })
+$btnStopRunning.Add_Click({
+    try {
+        $statusLabel.ForeColor = [System.Drawing.Color]::DimGray
+        $statusLabel.Text = T "s_cleaning"
+
+        $cleanupArgs = Get-CleanupArgumentData -ui $ui -ScriptPath $launcherScriptPath
+        $quotedCleanupArgs = @()
+        foreach ($a in $cleanupArgs) { $quotedCleanupArgs += (Quote-ForDisplay -Value $a) }
+        $cleanupArgLine = $quotedCleanupArgs -join " "
+
+        Write-LauncherLog "Cleanup requested. ArgLine=$cleanupArgLine"
+
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = "powershell.exe"
+        $psi.Arguments = $cleanupArgLine
+        $psi.WorkingDirectory = $ServerRoot
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+
+        $cleanupProc = [System.Diagnostics.Process]::Start($psi)
+        if ($null -eq $cleanupProc) {
+            throw "Cleanup process did not start."
+        }
+
+        $stdOut = $cleanupProc.StandardOutput.ReadToEnd()
+        $stdErr = $cleanupProc.StandardError.ReadToEnd()
+        $cleanupProc.WaitForExit()
+
+        if (-not [string]::IsNullOrWhiteSpace($stdOut)) {
+            Write-LauncherLog "Cleanup stdout: $($stdOut.Trim())"
+        }
+        if (-not [string]::IsNullOrWhiteSpace($stdErr)) {
+            Write-LauncherLog "Cleanup stderr: $($stdErr.Trim())"
+        }
+
+        if ($cleanupProc.ExitCode -ne 0) {
+            throw "Cleanup process exited with code $($cleanupProc.ExitCode)."
+        }
+
+        $statusLabel.ForeColor = [System.Drawing.Color]::DarkGreen
+        $statusLabel.Text = T "s_cleaned"
+        [System.Windows.Forms.MessageBox]::Show((T "m_clean_ok"), (T "ok"), "OK", "Information") | Out-Null
+    } catch {
+        $statusLabel.ForeColor = [System.Drawing.Color]::Firebrick
+        $statusLabel.Text = Tf "m_cleanf" @($_.Exception.Message)
+        [System.Windows.Forms.MessageBox]::Show((Tf "m_cleanf" @($_.Exception.Message)), (T "e"), "OK", "Error") | Out-Null
+    }
+})
+
 $btnStart.Add_Click({
     try {
         if (-not (Validate-Inputs -ui $ui)) { return }

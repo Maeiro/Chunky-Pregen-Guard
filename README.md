@@ -29,7 +29,7 @@ Chunky Pregen Guard automates this workflow so restarts are more predictable and
 - `dist/ChunkyPregenGuard/ChunkyPregenGuard.exe`: packaged GUI executable.
 
 Important runtime dependency:
-- `chunky-autorestart.ps1` (server supervisor script) must exist in your server root. The GUI launches and configures this script.
+- `chunky-autorestart.ps1` (server supervisor script) is created/updated automatically in your server root by the launcher when needed.
 
 ## What The GUI Provides
 - UI language: `pt-BR` and `English`.
@@ -42,6 +42,7 @@ Important runtime dependency:
 - Optional `user_jvm_args.txt` update.
 - Command preview and `.bat` export.
 - Startup diagnostics/log hints.
+- One-click cleanup: `Stop Running Guard/Server` (force-stop orphan supervisor/java + stale lock/pid files).
 
 ## Requirements
 - Windows PowerShell 5.1+.
@@ -53,6 +54,7 @@ Important runtime dependency:
 - `dist/ChunkyPregenGuard/ChunkyPregenGuard.exe`
 - or `dist/ChunkyPregenGuard/Run-ChunkyPregenGuard.bat`
 2. Configure and click `Start Server`.
+3. If you suspect orphan processes, click `Stop Running Guard/Server` before starting again.
 
 If you move only the EXE, ensure it still points to the correct server folder containing `chunky-autorestart.ps1`.
 
@@ -96,6 +98,15 @@ If startup fails:
 1. check server logs;
 2. check `logs/chunky-autorestart.log`;
 3. check `logs/chunky-pregen-guard-ui.log`.
+
+## Manual Cleanup (Terminal)
+If you need a deterministic force cleanup without opening the GUI:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\chunky-autorestart.ps1 -CleanupOnly 1
+```
+
+This mode force-stops matching Guard/server processes and removes stale lock/pid files by design.
 
 ## Quick Troubleshooting
 - `Another supervisor is already active (PID=...)`:
