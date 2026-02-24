@@ -3,20 +3,27 @@ param(
     [double]$MaxMemoryGB = 18,
     [double]$HardMemoryGB = 22,
     [double]$PreWarnMemoryGB = 17.5,
-    [int]$CheckIntervalSec = 30,
+    [int]$CheckIntervalSec = 10,
     [int]$WarmupSec = 180,
-    [int]$StartupDelaySec = 60,
+    [int]$StartupDelaySec = 10,
+    [int]$MaxStartupDelaySec = 60,
+    [int]$RestartDelaySec = 3,
     [int]$StopTimeoutSec = 180,
     [int]$AverageWindowChecks = 10,
     [int]$MinConsecutiveAboveThreshold = 4,
+    [double]$SoftTriggerEffectiveMarginGB = 1.0,
     [int]$FlushSettleSec = 15,
     [int]$StopGraceSec = 20,
+    [int]$KillVerifyTimeoutSec = 8,
+    [int]$KillVerifyPollMs = 300,
     [double]$ProjectionMinRamPrivateGB = 14.0,
     [int]$LowEtaConsecutiveChecks = 3,
     [int]$AdaptiveLeadMinMinutes = 2,
     [int]$AdaptiveLeadMaxMinutes = 4,
     [ValidateSet("private", "ws", "hybrid")]
     [string]$TrendSourceMode = "hybrid",
+    [int]$UseReadySignalForResume = 1,
+    [string]$ServerReadyPattern = 'Done \(.*\)! For help, type "help"',
     [int]$PreWarnProjectionEnabled = 1,
     [int]$BroadcastEnabled = 1,
     [string]$BroadcastPrefix = "[AutoRestart]",
@@ -86,11 +93,18 @@ if (-not [string]::IsNullOrWhiteSpace($resolvedWinArgsFile)) {
 
 $resumeCommandList = $ResumeCommands.Split(";") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
 $avgWindow = [Math]::Max(1, $AverageWindowChecks)
+$checkIntervalSecEffective = [Math]::Max(1, $CheckIntervalSec)
+$minResumeDelaySec = [Math]::Max(0, $StartupDelaySec)
+$maxResumeDelaySec = if ($UseReadySignalForResume -eq 1) { [Math]::Max($minResumeDelaySec, $MaxStartupDelaySec) } else { $minResumeDelaySec }
+$restartDelaySecEffective = [Math]::Max(0, $RestartDelaySec)
+$softEffectiveThresholdGB = [Math]::Round($MaxMemoryGB + [Math]::Max(0, $SoftTriggerEffectiveMarginGB), 3)
+$killVerifyTimeoutSecEffective = [Math]::Max(1, $KillVerifyTimeoutSec)
+$killVerifyPollMsEffective = [Math]::Max(100, $KillVerifyPollMs)
 
 function Write-Log {
     param([string]$Message)
     $line = "[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Message
-    $line | Tee-Object -FilePath $LogFile -Append
+    $line | Tee-Object -FilePath $LogFile -Append | Out-Host
 }
 
 function Get-OtherSupervisors {
@@ -121,7 +135,7 @@ function Stop-ProcessForceSafe {
 
     $target = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
     if ($null -eq $target) {
-        return $false
+        return $true
     }
 
     if (-not [string]::IsNullOrWhiteSpace($LogMessage)) {
@@ -139,13 +153,48 @@ function Stop-ProcessForceSafe {
         }
     }
 
-    Start-Sleep -Milliseconds 700
-    if ($null -ne (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue)) {
-        Write-Log "Process still running after force-stop attempt (PID=$ProcessId)."
-        return $false
+    if (Wait-ProcessExit -ProcessId $ProcessId -TimeoutSec $killVerifyTimeoutSecEffective -PollMs $killVerifyPollMsEffective) {
+        return $true
     }
 
-    return $true
+    Write-Log "Kill() did not stop process in ${killVerifyTimeoutSecEffective}s. Trying taskkill fallback (PID=$ProcessId)."
+    try {
+        & taskkill /PID $ProcessId /T /F | Out-Null
+    } catch {
+        Write-Log "taskkill failed (PID=$ProcessId): $($_.Exception.Message)"
+    }
+
+    if (Wait-ProcessExit -ProcessId $ProcessId -TimeoutSec $killVerifyTimeoutSecEffective -PollMs $killVerifyPollMsEffective) {
+        return $true
+    }
+
+    Write-Log "Process still running after force-stop attempt (PID=$ProcessId)."
+    return $false
+}
+
+function Wait-ProcessExit {
+    param(
+        [int]$ProcessId,
+        [int]$TimeoutSec,
+        [int]$PollMs
+    )
+
+    if ($ProcessId -le 0) {
+        return $true
+    }
+
+    $timeout = [Math]::Max(1, $TimeoutSec)
+    $poll = [Math]::Max(100, $PollMs)
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+
+    while ($sw.Elapsed.TotalSeconds -lt $timeout) {
+        if ($null -eq (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue)) {
+            return $true
+        }
+        Start-Sleep -Milliseconds $poll
+    }
+
+    return $null -eq (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue)
 }
 
 function Stop-OtherSupervisors {
@@ -352,7 +401,8 @@ function Start-Server {
 
     $outEvent = Register-ObjectEvent -InputObject $process -EventName OutputDataReceived -Action {
         if ($EventArgs.Data) {
-            $timestamped = "[{0}] [SERVER] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $EventArgs.Data
+            $now = Get-Date
+            $timestamped = "[{0}] [SERVER] {1}" -f ($now.ToString("yyyy-MM-dd HH:mm:ss")), $EventArgs.Data
             Add-Content -Path $using:LogFile -Value $timestamped
         }
     }
@@ -387,17 +437,130 @@ function Cleanup-Events {
     }
 }
 
+function Test-ServerReadySignalInLog {
+    param($serverState)
+
+    if ($UseReadySignalForResume -ne 1) {
+        return $false
+    }
+
+    if ($null -eq $serverState) {
+        return $false
+    }
+
+    $startedAt = $null
+    if ($serverState -is [hashtable] -and $serverState.ContainsKey("StartedAt")) {
+        $startedAt = $serverState.StartedAt
+    }
+    if ($null -eq $startedAt) {
+        $startedAt = Get-Date
+    }
+
+    try {
+        $tailLines = Get-Content -Path $LogFile -Tail 600 -ErrorAction SilentlyContinue
+        foreach ($line in @($tailLines)) {
+            if ($line -notmatch '^\\[(?<ts>\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2})\\]\\s\\[SERVER\\]\\s(?<msg>.*)$') {
+                continue
+            }
+
+            $lineTs = [datetime]::ParseExact($Matches.ts, 'yyyy-MM-dd HH:mm:ss', [Globalization.CultureInfo]::InvariantCulture)
+            if ($lineTs -lt $startedAt.AddSeconds(-1)) {
+                continue
+            }
+
+            if ($Matches.msg -match $ServerReadyPattern) {
+                return $true
+            }
+        }
+    } catch {
+    }
+
+    return $false
+}
+
 function Send-ResumeCommands {
     param($serverState)
+
+    $waitStart = Get-Date
+    $resumeReason = "fallback_timeout"
+    $readyLogged = $false
+
+    while ($true) {
+        if ($serverState.Process.HasExited) {
+            Write-Log "Resume skipped: server process exited before resume commands."
+            return [pscustomobject]@{
+                Sent = $false
+                ResumedAt = $null
+                Reason = "fallback_timeout"
+                WaitSec = [math]::Round(((Get-Date) - $waitStart).TotalSeconds, 1)
+            }
+        }
+
+        $elapsedSec = ((Get-Date) - $waitStart).TotalSeconds
+        $readyDetected = ($UseReadySignalForResume -eq 1) -and (Test-ServerReadySignalInLog -serverState $serverState)
+        if ($readyDetected -and (-not $readyLogged)) {
+            Write-Log "ResumeReadySignal: matched readiness pattern in server log."
+            $readyLogged = $true
+        }
+        if ($readyDetected -and ($elapsedSec -ge $minResumeDelaySec)) {
+            $resumeReason = "ready_signal"
+            break
+        }
+
+        if ($elapsedSec -ge $maxResumeDelaySec) {
+            $resumeReason = "fallback_timeout"
+            break
+        }
+
+        Start-Sleep -Milliseconds 250
+    }
+
+    $waitSec = [math]::Round(((Get-Date) - $waitStart).TotalSeconds, 1)
+    Write-Log "ResumeReason: $resumeReason; wait_sec=$waitSec; min_delay_sec=$minResumeDelaySec; max_delay_sec=$maxResumeDelaySec"
+
+    $resumeSent = $false
+    $resumedAt = $null
     foreach ($cmd in $resumeCommandList) {
         try {
             $serverState.Process.StandardInput.WriteLine($cmd)
+            if (-not $resumeSent) {
+                $resumedAt = Get-Date
+            }
+            $resumeSent = $true
             Write-Log "Command sent after server start: $cmd"
         } catch {
             Write-Log "Failed to send command after server start: $cmd"
         }
         Start-Sleep -Seconds 1
     }
+
+    return [pscustomobject]@{
+        Sent = $resumeSent
+        ResumedAt = $resumedAt
+        Reason = $resumeReason
+        WaitSec = $waitSec
+    }
+}
+
+function Resolve-ResumeResult {
+    param($Value)
+
+    if ($null -eq $Value) {
+        return [pscustomobject]@{ Sent = $false; ResumedAt = $null; Reason = "unknown"; WaitSec = 0 }
+    }
+
+    if ($Value -is [array]) {
+        $candidate = $Value |
+            Where-Object { $_ -is [psobject] -and ($_.PSObject.Properties.Name -contains "Sent") } |
+            Select-Object -Last 1
+        if ($null -ne $candidate) {
+            return $candidate
+        }
+    } elseif ($Value -is [psobject] -and ($Value.PSObject.Properties.Name -contains "Sent")) {
+        return $Value
+    }
+
+    return [pscustomobject]@{ Sent = $false; ResumedAt = $null; Reason = "invalid_result"; WaitSec = 0 }
 }
 
 function Stop-ManagedServerOnExit {
@@ -531,8 +694,11 @@ if ($CleanupOnly -eq 1) {
     exit 0
 }
 
-Write-Log "Supervisor started. RAM limit=$MaxMemoryGB GB; interval=$CheckIntervalSec s; warmup=$WarmupSec s; gui=$($GuiMode.IsPresent)"
+Write-Log "Supervisor started. RAM limit=$MaxMemoryGB GB; interval=$checkIntervalSecEffective s; warmup=$WarmupSec s; gui=$($GuiMode.IsPresent)"
 Write-Log "RAM policy: soft(avg+sustained)=$MaxMemoryGB GB; hard(peak)=$HardMemoryGB GB; window=$AverageWindowChecks checks; consecutive=$MinConsecutiveAboveThreshold"
+Write-Log "Startup policy: readySignal=$UseReadySignalForResume; minDelay=${minResumeDelaySec}s; maxDelay=${maxResumeDelaySec}s; restartDelay=${restartDelaySecEffective}s"
+Write-Log "Stop policy: sustainedEffectiveThreshold=$softEffectiveThresholdGB GB; stopGrace=${StopGraceSec}s; killVerify=${killVerifyTimeoutSecEffective}s/${killVerifyPollMsEffective}ms"
+Write-Log "Ready pattern: $ServerReadyPattern"
 Write-Log "Resume commands: $($resumeCommandList -join ' | ')"
 
 if (Test-Path -Path $LockFile) {
@@ -624,20 +790,23 @@ try {
     Write-ManagedPidFile -serverState $server
     $memorySamples = New-Object System.Collections.Generic.List[double]
     $consecutiveAboveThreshold = 0
+    $lastResumeAt = $null
 
-    Write-Log "Server started (PID=$($server.Process.Id)). Waiting $StartupDelaySec s before resuming Chunky."
-    Start-Sleep -Seconds $StartupDelaySec
-    Send-ResumeCommands -serverState $server
+    Write-Log "Server started (PID=$($server.Process.Id)). Waiting for readiness before resuming Chunky."
+    $initialResume = Resolve-ResumeResult -Value (Send-ResumeCommands -serverState $server)
+    if ($initialResume.Sent -and ($null -ne $initialResume.ResumedAt)) {
+        $lastResumeAt = $initialResume.ResumedAt
+    }
 
     while ($true) {
-        Start-Sleep -Seconds $CheckIntervalSec
+        Start-Sleep -Seconds $checkIntervalSecEffective
 
         $proc = $server.Process
         if ($proc.HasExited) {
-            Write-Log "Java process exited (code=$($proc.ExitCode)). Restarting in 10 s."
+            Write-Log "Java process exited (code=$($proc.ExitCode)). Restarting in $restartDelaySecEffective s."
             Clear-ManagedPidFile
             Cleanup-Events -serverState $server
-            Start-Sleep -Seconds 10
+            Start-Sleep -Seconds $restartDelaySecEffective
             Cleanup-ResidualManagedJava -Context "RestartAfterExit"
 
             $server = Start-Server
@@ -646,9 +815,11 @@ try {
             $memorySamples = New-Object System.Collections.Generic.List[double]
             $consecutiveAboveThreshold = 0
 
-            Write-Log "Server restarted (PID=$($server.Process.Id)). Waiting $StartupDelaySec s."
-            Start-Sleep -Seconds $StartupDelaySec
-            Send-ResumeCommands -serverState $server
+            Write-Log "Server restarted (PID=$($server.Process.Id)). Waiting for readiness."
+            $resumeAfterExit = Resolve-ResumeResult -Value (Send-ResumeCommands -serverState $server)
+            if ($resumeAfterExit.Sent -and ($null -ne $resumeAfterExit.ResumedAt)) {
+                $lastResumeAt = $resumeAfterExit.ResumedAt
+            }
             continue
         }
 
@@ -682,22 +853,33 @@ try {
         }
 
         $shouldRestartByHard = $memoryEffectiveGB -ge $HardMemoryGB
-        $shouldRestartBySoft = ($avgMemoryGB -ge $MaxMemoryGB) -and ($consecutiveAboveThreshold -ge $MinConsecutiveAboveThreshold)
+        $shouldRestartBySoft = ($avgMemoryGB -ge $MaxMemoryGB) -and
+            ($consecutiveAboveThreshold -ge $MinConsecutiveAboveThreshold) -and
+            ($memoryEffectiveGB -ge $softEffectiveThresholdGB)
 
         if ($shouldRestartByHard -or $shouldRestartBySoft) {
+            $stopRequestedAt = Get-Date
+            if ($null -ne $lastResumeAt) {
+                $runToNextStopSec = [math]::Round(($stopRequestedAt - $lastResumeAt).TotalSeconds, 1)
+                Write-Log "CycleSummary: run_to_next_stop_sec=$runToNextStopSec"
+            }
+
             $reason = if ($shouldRestartByHard) {
                 "RAM spike: effective=$memoryEffectiveGB GB (ws=$memoryWsGB GB; private=$memoryPrivateGB GB; hard=$HardMemoryGB GB)"
             } else {
-                "Sustained RAM: effective=$memoryEffectiveGB GB, avg=$avgMemoryGB GB (soft=$MaxMemoryGB GB)"
+                "Sustained RAM: effective=$memoryEffectiveGB GB, avg=$avgMemoryGB GB (soft=$MaxMemoryGB GB; effective_min=$softEffectiveThresholdGB GB)"
             }
 
             Graceful-Stop -serverState $server -Reason $reason
             Clear-ManagedPidFile
             Cleanup-Events -serverState $server
             Cleanup-ResidualManagedJava -Context "PostStopBeforeRestart"
+            $postStopResidual = @(Get-ManagedJavaProcesses)
+            $residualPidList = if (@($postStopResidual).Count -gt 0) { ($postStopResidual | ForEach-Object { $_.Id }) -join "," } else { "none" }
+            Write-Log "PostStopProcessCheck: residual_java_count=$(@($postStopResidual).Count); residual_pids=$residualPidList"
 
-            Write-Log "Restarting server in 10 s."
-            Start-Sleep -Seconds 10
+            Write-Log "Restarting server in $restartDelaySecEffective s."
+            Start-Sleep -Seconds $restartDelaySecEffective
 
             $server = Start-Server
             $script:ManagedServerState = $server
@@ -705,9 +887,15 @@ try {
             $memorySamples = New-Object System.Collections.Generic.List[double]
             $consecutiveAboveThreshold = 0
 
-            Write-Log "Server restarted (PID=$($server.Process.Id)). Waiting $StartupDelaySec s."
-            Start-Sleep -Seconds $StartupDelaySec
-            Send-ResumeCommands -serverState $server
+            Write-Log "Server restarted (PID=$($server.Process.Id)). Waiting for readiness."
+            $resumeAfterRestart = Resolve-ResumeResult -Value (Send-ResumeCommands -serverState $server)
+            if ($resumeAfterRestart.Sent -and ($null -ne $resumeAfterRestart.ResumedAt)) {
+                $lastResumeAt = $resumeAfterRestart.ResumedAt
+                $stopToResumeSec = [math]::Round(($lastResumeAt - $stopRequestedAt).TotalSeconds, 1)
+                Write-Log "CycleSummary: stop_to_resume_sec=$stopToResumeSec"
+            } else {
+                Write-Log "CycleSummary: stop_to_resume_sec=NA (resume command not sent)"
+            }
         }
     }
 }

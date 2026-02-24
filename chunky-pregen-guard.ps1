@@ -531,9 +531,9 @@ function Get-Recommendation {
     $softPct = 0.83
     $prePct = 0.73
     $projPct = 0.58
-    $checkInterval = 30
+    $checkInterval = 10
     $warmup = 180
-    $startupDelay = 60
+    $startupDelay = 10
     $flushSettle = 15
     $stopGrace = 20
     $avgWindow = 10
@@ -552,11 +552,11 @@ function Get-Recommendation {
             $softPct = 0.86
             $prePct = 0.77
             $projPct = 0.62
-            $checkInterval = 20
+            $checkInterval = 10
             $warmup = 120
-            $startupDelay = 45
-            $flushSettle = 10
-            $stopGrace = 15
+            $startupDelay = 10
+            $flushSettle = 15
+            $stopGrace = 20
             $avgWindow = 8
             $minConsecutive = 3
             $lowEtaChecks = 2
@@ -572,9 +572,9 @@ function Get-Recommendation {
             $softPct = 0.78
             $prePct = 0.66
             $projPct = 0.55
-            $checkInterval = 30
+            $checkInterval = 15
             $warmup = 180
-            $startupDelay = 75
+            $startupDelay = 15
             $flushSettle = 20
             $stopGrace = 25
             $avgWindow = 12
@@ -735,16 +735,23 @@ function Get-ArgumentPairs {
         @("CheckIntervalSec", [string][int]$ui.CheckIntervalSec.Value),
         @("WarmupSec", [string][int]$ui.WarmupSec.Value),
         @("StartupDelaySec", [string][int]$ui.StartupDelaySec.Value),
+        @("MaxStartupDelaySec", "60"),
+        @("RestartDelaySec", "3"),
         @("AverageWindowChecks", [string][int]$ui.AverageWindowChecks.Value),
         @("MinConsecutiveAboveThreshold", [string][int]$ui.MinConsecutiveAboveThreshold.Value),
         @("StopTimeoutSec", [string][int]$ui.StopTimeoutSec.Value),
+        @("SoftTriggerEffectiveMarginGB", "1.0"),
         @("FlushSettleSec", [string][int]$ui.FlushSettleSec.Value),
         @("StopGraceSec", [string][int]$ui.StopGraceSec.Value),
+        @("KillVerifyTimeoutSec", "8"),
+        @("KillVerifyPollMs", "300"),
         @("ProjectionMinRamPrivateGB", [string][double]$ui.ProjectionMinRamPrivateGB.Value),
         @("LowEtaConsecutiveChecks", [string][int]$ui.LowEtaConsecutiveChecks.Value),
         @("AdaptiveLeadMinMinutes", [string][int]$ui.AdaptiveLeadMinMinutes.Value),
         @("AdaptiveLeadMaxMinutes", [string][int]$ui.AdaptiveLeadMaxMinutes.Value),
         @("TrendSourceMode", $trend),
+        @("UseReadySignalForResume", "1"),
+        @("ServerReadyPattern", 'Done \(.*\)! For help, type "help"'),
         @("PreWarnProjectionEnabled", $(if ($ui.PreWarnProjectionEnabled.Checked) { "1" } else { "0" })),
         @("BroadcastEnabled", $(if ($ui.BroadcastEnabled.Checked) { "1" } else { "0" })),
         @("BroadcastPrefix", $ui.BroadcastPrefix.Text),
@@ -973,9 +980,9 @@ $ui.HardMemoryGB = New-Numeric -Value 22 -Minimum 4 -Maximum 96 -DecimalPlaces 1
 $ui.PreWarnMemoryGB = New-Numeric -Value 17.5 -Minimum 4 -Maximum 96 -DecimalPlaces 1; Add-LocalizedRow -Panel $gridMain -Control $ui.PreWarnMemoryGB -LabelKey "l_prew" -HelpKey "h_prew" -Registry $rowRegistry
 $ui.AdaptiveLeadMinMinutes = New-Numeric -Value 2 -Minimum 1 -Maximum 20; Add-LocalizedRow -Panel $gridMain -Control $ui.AdaptiveLeadMinMinutes -LabelKey "l_lmin" -HelpKey "h_lmin" -Registry $rowRegistry
 $ui.AdaptiveLeadMaxMinutes = New-Numeric -Value 4 -Minimum 1 -Maximum 30; Add-LocalizedRow -Panel $gridMain -Control $ui.AdaptiveLeadMaxMinutes -LabelKey "l_lmax" -HelpKey "h_lmax" -Registry $rowRegistry
-$ui.CheckIntervalSec = New-Numeric -Value 30 -Minimum 5 -Maximum 300; Add-LocalizedRow -Panel $gridMain -Control $ui.CheckIntervalSec -LabelKey "l_chk" -HelpKey "h_chk" -Registry $rowRegistry
+$ui.CheckIntervalSec = New-Numeric -Value 10 -Minimum 5 -Maximum 300; Add-LocalizedRow -Panel $gridMain -Control $ui.CheckIntervalSec -LabelKey "l_chk" -HelpKey "h_chk" -Registry $rowRegistry
 $ui.WarmupSec = New-Numeric -Value 180 -Minimum 0 -Maximum 1800; Add-LocalizedRow -Panel $gridMain -Control $ui.WarmupSec -LabelKey "l_warm" -HelpKey "h_warm" -Registry $rowRegistry
-$ui.StartupDelaySec = New-Numeric -Value 60 -Minimum 0 -Maximum 900; Add-LocalizedRow -Panel $gridMain -Control $ui.StartupDelaySec -LabelKey "l_st" -HelpKey "h_st" -Registry $rowRegistry
+$ui.StartupDelaySec = New-Numeric -Value 10 -Minimum 0 -Maximum 900; Add-LocalizedRow -Panel $gridMain -Control $ui.StartupDelaySec -LabelKey "l_st" -HelpKey "h_st" -Registry $rowRegistry
 $ui.FlushSettleSec = New-Numeric -Value 15 -Minimum 0 -Maximum 180; Add-LocalizedRow -Panel $gridMain -Control $ui.FlushSettleSec -LabelKey "l_fl" -HelpKey "h_fl" -Registry $rowRegistry
 $ui.StopGraceSec = New-Numeric -Value 20 -Minimum 1 -Maximum 300; Add-LocalizedRow -Panel $gridMain -Control $ui.StopGraceSec -LabelKey "l_gr" -HelpKey "h_gr" -Registry $rowRegistry
 $ui.ResumeCommands = New-TextBox -Text "chunky continue" -Width 280; Add-LocalizedRow -Panel $gridMain -Control $ui.ResumeCommands -LabelKey "l_rc" -HelpKey "h_rc" -Registry $rowRegistry
