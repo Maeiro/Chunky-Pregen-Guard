@@ -33,8 +33,11 @@ Important runtime dependency:
 
 ## What The GUI Provides
 - UI language: `pt-BR` and `English`.
+- Top-bar recommendation profile selector (`Balanced`, `Aggressive pregen`, `Low RAM`) next to `Apply Recommended`.
 - Recommended presets based on detected system RAM.
-- JVM profile options (`Balanced`, `Aggressive pregen`, `Low RAM`).
+- `Apply From Entered RAM` button (uses your entered `Xmx` to recalculate guard limits/timings/checks without overriding `Xms/Xmx`).
+- Custom profiles (save/load/delete) directly in the GUI.
+- Local persistence of last-used settings and selected profiles.
 - Memory/restart controls:
   - `Soft`, `Hard`, `PreWarn` limits.
   - Check/warmup/startup/flush/stop timers.
@@ -43,6 +46,9 @@ Important runtime dependency:
 - Command preview and `.bat` export.
 - Startup diagnostics/log hints.
 - One-click cleanup: `Stop Running Guard/Server` (force-stop orphan supervisor/java + stale lock/pid files).
+
+Settings persistence file:
+- `config/chunky-pregen-guard.settings.json` (created automatically in your server folder).
 
 ## Requirements
 - Windows PowerShell 5.1+.

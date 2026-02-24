@@ -152,11 +152,19 @@ Add-Type -AssemblyName System.Drawing
 
 $i18n = @{
     "pt-BR" = @{
-        form="Chunky Pregen Guard (Teste)"
+        form="Chunky Pregen Guard"
         head="Preencha as configuracoes abaixo. Se preferir, clique em Aplicar Recomendado e depois em Iniciar Servidor."
         lang="Idioma:"
         tab1="Basico"; tab2="Avancado"; tab3="Java/JVM"
         rec="Aplicar Recomendado"; start="Iniciar Servidor"; stoprun="Parar Guard/Servidor Ativos"; save="Gerar .bat com estas Configs"; prev="Atualizar Preview"
+        recprof="Perfil recomendado:"
+        custprof="Perfis personalizados:"
+        profname="Nome do perfil:"
+        profsave="Salvar Perfil"
+        profload="Carregar Perfil"
+        profdel="Excluir Perfil"
+        applyram="Aplicar por RAM Inserida"
+        cp_none="(nenhum)"
         sysram="RAM total detectada: {0} GB"
         cmd="Comando que sera executado:"; jvmp="Conteudo de user_jvm_args.txt que sera aplicado:"; jvmd="(desativado: o arquivo de JVM nao sera alterado)"
         c_gui="Mostrar janela do servidor"; c_brd="Enviar avisos no chat"; c_proj="Usar previsao de memoria"; c_clean="Parar processos antigos no inicio"; c_jvm="Atualizar user_jvm_args.txt antes de iniciar"
@@ -190,6 +198,7 @@ $i18n = @{
         l_aj="Aplicar configuracao de JVM"; h_aj="Se ligado, o launcher atualiza user_jvm_args.txt antes de iniciar."
         l_ex="Argumentos JVM extras"; h_ex="Adicione um argumento por linha. Use apenas se souber o efeito."
         l_jf="Arquivo de JVM"; h_jf="Arquivo que o Forge le para aplicar os argumentos da JVM."
+        l_ramapply="Gerar configs por RAM inserida"; h_ramapply="Usa o Xmx informado e o perfil selecionado para recalcular limites, tempos e checks sem alterar Xms/Xmx."
         tr_h="hybrid (recomendado)"; tr_p="private (mais estavel)"; tr_w="ws (mais sensivel a picos)"
         jp_b="Balanceado (recomendado)"; jp_t="Pregen agressivo"; jp_l="Baixa RAM (conservador)"
         e="Erro"; ok="Sucesso"; w="Validacao"
@@ -200,6 +209,18 @@ $i18n = @{
         m_clean_ok="Limpeza concluida. Veja os logs para confirmar os PIDs encerrados."
         m_cleanf="Falha ao executar limpeza: {0}"
         m_rec="Configuracoes recomendadas aplicadas para {0} GB de RAM total."; m_recf="Falha ao aplicar configuracoes recomendadas: {0}"; m_jvmf="Falha ao atualizar user_jvm_args.txt: {0}"
+        m_apply_ram="Configuracoes aplicadas com base em {0} GB de RAM informada."
+        m_apply_ramf="Falha ao aplicar configuracoes por RAM informada: {0}"
+        m_profile_name_req="Informe um nome de perfil."
+        m_profile_load_missing="Selecione um perfil para carregar."
+        m_profile_delete_missing="Selecione um perfil para excluir."
+        m_profile_saved="Perfil '{0}' salvo."
+        m_profile_loaded="Perfil '{0}' carregado."
+        m_profile_deleted="Perfil '{0}' excluido."
+        m_profile_savef="Falha ao salvar perfil: {0}"
+        m_profile_loadf="Falha ao carregar perfil: {0}"
+        m_profile_deletef="Falha ao excluir perfil: {0}"
+        m_settings_savef="Falha ao salvar configuracoes: {0}"
         m_start_runtime_fail="O supervisor iniciou, mas o servidor nao concluiu a inicializacao."
         m_start_runtime_hint="Verifique os logs do servidor para identificar o erro."
         m_start_uncertain="O supervisor iniciou, mas o startup ainda nao foi confirmado. Verifique os logs do servidor."
@@ -211,11 +232,19 @@ $i18n = @{
         s_started_jvm="Supervisor iniciado (PID={0}). user_jvm_args.txt atualizado com {1} linhas."
     }
     "en-US" = @{
-        form="Chunky Pregen Guard (Test)"
+        form="Chunky Pregen Guard"
         head="Fill the settings below. If you prefer, click Apply Recommended first, then Start Server."
         lang="Language:"
         tab1="Basic"; tab2="Advanced"; tab3="Java/JVM"
         rec="Apply Recommended"; start="Start Server"; stoprun="Stop Running Guard/Server"; save="Generate .bat with These Settings"; prev="Refresh Preview"
+        recprof="Recommendation profile:"
+        custprof="Custom profiles:"
+        profname="Profile name:"
+        profsave="Save Profile"
+        profload="Load Profile"
+        profdel="Delete Profile"
+        applyram="Apply From Entered RAM"
+        cp_none="(none)"
         sysram="Detected total RAM: {0} GB"
         cmd="Command that will run:"; jvmp="Content of user_jvm_args.txt that will be applied:"; jvmd="(disabled: JVM file will not be changed)"
         c_gui="Show server window"; c_brd="Send chat warnings"; c_proj="Use memory prediction"; c_clean="Stop old processes at startup"; c_jvm="Update user_jvm_args.txt before start"
@@ -249,6 +278,7 @@ $i18n = @{
         l_aj="Apply JVM settings"; h_aj="If enabled, launcher updates user_jvm_args.txt before start."
         l_ex="Extra JVM arguments"; h_ex="Add one argument per line. Use only if you understand the impact."
         l_jf="JVM file"; h_jf="File read by Forge to apply JVM arguments."
+        l_ramapply="Generate config from entered RAM"; h_ramapply="Uses entered Xmx and selected profile to recalculate limits, timings and checks without changing Xms/Xmx."
         tr_h="hybrid (recommended)"; tr_p="private (most stable)"; tr_w="ws (most spike-sensitive)"
         jp_b="Balanced (recommended)"; jp_t="Aggressive pregen"; jp_l="Low RAM (conservative)"
         e="Error"; ok="Success"; w="Validation"
@@ -259,6 +289,18 @@ $i18n = @{
         m_clean_ok="Cleanup completed. Check logs for terminated PID entries."
         m_cleanf="Failed to run cleanup: {0}"
         m_rec="Recommended settings applied for {0} GB of total RAM."; m_recf="Failed to apply recommended settings: {0}"; m_jvmf="Failed to update user_jvm_args.txt: {0}"
+        m_apply_ram="Settings applied using {0} GB entered RAM."
+        m_apply_ramf="Failed to apply entered-RAM settings: {0}"
+        m_profile_name_req="Please enter a profile name."
+        m_profile_load_missing="Select a profile to load."
+        m_profile_delete_missing="Select a profile to delete."
+        m_profile_saved="Profile '{0}' saved."
+        m_profile_loaded="Profile '{0}' loaded."
+        m_profile_deleted="Profile '{0}' deleted."
+        m_profile_savef="Failed to save profile: {0}"
+        m_profile_loadf="Failed to load profile: {0}"
+        m_profile_deletef="Failed to delete profile: {0}"
+        m_settings_savef="Failed to save settings: {0}"
         m_start_runtime_fail="Supervisor started, but server startup did not complete."
         m_start_runtime_hint="Please check the server logs to identify the error."
         m_start_uncertain="Supervisor started, but startup was not confirmed yet. Please check server logs."
@@ -466,7 +508,8 @@ function Get-ComboSelectedValue {
         }
     }
 
-    $item = $Combo.SelectedItem
+    $item = $null
+    try { $item = $Combo.SelectedItem } catch { $item = $null }
     if ($null -ne $item) {
         if ($item -is [System.Collections.IDictionary] -and $item.Contains("Value")) {
             $v = [string]$item["Value"]
@@ -481,6 +524,458 @@ function Get-ComboSelectedValue {
     }
 
     return $DefaultValue
+}
+
+function Set-NumericControlValue {
+    param(
+        [System.Windows.Forms.NumericUpDown]$Control,
+        [double]$Value
+    )
+    if ($null -eq $Control) { return }
+    $min = [double]$Control.Minimum
+    $max = [double]$Control.Maximum
+    $clamped = [math]::Max($min, [math]::Min($max, $Value))
+    $Control.Value = [decimal]$clamped
+}
+
+function ConvertTo-Bool {
+    param(
+        $Value,
+        [bool]$Default = $false
+    )
+    if ($null -eq $Value) { return $Default }
+    if ($Value -is [bool]) { return [bool]$Value }
+    $text = [string]$Value
+    if ([string]::IsNullOrWhiteSpace($text)) { return $Default }
+    switch -Regex ($text.Trim().ToLowerInvariant()) {
+        "^(1|true|yes|y|on)$" { return $true }
+        "^(0|false|no|n|off)$" { return $false }
+    }
+    return $Default
+}
+
+function ConvertTo-DoubleSafe {
+    param(
+        $Value,
+        [double]$Default = 0
+    )
+    if ($null -eq $Value) { return $Default }
+    try {
+        if ($Value -is [double] -or $Value -is [single] -or $Value -is [decimal] -or $Value -is [int] -or $Value -is [long]) {
+            return [double]$Value
+        }
+    } catch {}
+
+    $text = [string]$Value
+    if ([string]::IsNullOrWhiteSpace($text)) { return $Default }
+    $parsed = 0.0
+    if ([double]::TryParse($text, [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$parsed)) {
+        return $parsed
+    }
+    if ([double]::TryParse($text, [ref]$parsed)) {
+        return $parsed
+    }
+    return $Default
+}
+
+function ConvertTo-IntSafe {
+    param(
+        $Value,
+        [int]$Default = 0
+    )
+    $dbl = ConvertTo-DoubleSafe -Value $Value -Default $Default
+    return [int][math]::Round($dbl, 0, [System.MidpointRounding]::AwayFromZero)
+}
+
+function Get-StateValue {
+    param(
+        $State,
+        [string]$Key,
+        $Default = $null
+    )
+    if ($null -eq $State) { return $Default }
+    if ($State -is [System.Collections.IDictionary]) {
+        if ($State.Contains($Key)) { return $State[$Key] }
+        return $Default
+    }
+    try {
+        $prop = $State.PSObject.Properties[$Key]
+        if ($null -ne $prop) { return $prop.Value }
+    } catch {}
+    return $Default
+}
+
+function ConvertFrom-JsonCompat {
+    param([string]$JsonText)
+    $cmd = Get-Command -Name ConvertFrom-Json -ErrorAction Stop
+    if ($cmd.Parameters.ContainsKey("Depth")) {
+        return $JsonText | ConvertFrom-Json -Depth 64
+    }
+    return $JsonText | ConvertFrom-Json
+}
+
+function Normalize-CustomProfileSelection {
+    param([string]$Value)
+    $v = [string]$Value
+    if ([string]::IsNullOrWhiteSpace($v)) { return "" }
+    $v = $v.Trim()
+
+    $noneOptions = @("(none)", "(nenhum)")
+    try {
+        $localizedNone = [string](T "cp_none")
+        if (-not [string]::IsNullOrWhiteSpace($localizedNone)) {
+            $noneOptions += $localizedNone
+        }
+    } catch {}
+
+    foreach ($none in $noneOptions) {
+        if ([string]::Equals($v, $none, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return ""
+        }
+    }
+    return $v
+}
+
+function Get-SettingsFilePath {
+    $settingsDir = Join-Path $ServerRoot "config"
+    return Join-Path $settingsDir "chunky-pregen-guard.settings.json"
+}
+
+$script:settingsSchemaVersion = 1
+$script:customProfiles = New-Object System.Collections.ArrayList
+$script:lastSettingsSaveError = ""
+
+function Get-UiState {
+    $trendValue = "hybrid"
+    $presetValue = "balanced"
+    $selectedCustom = ""
+    try { $trendValue = [string](Get-ComboSelectedValue -Combo $ui.TrendSourceMode -DefaultValue "hybrid") } catch {}
+    try { $presetValue = Resolve-JvmPreset -Preset (Get-ComboSelectedValue -Combo $ui.JvmPreset -DefaultValue "balanced") } catch {}
+    try { $selectedCustom = [string](Get-ComboSelectedValue -Combo $ui.CustomProfileList -DefaultValue "") } catch {}
+    $selectedCustom = Normalize-CustomProfileSelection -Value $selectedCustom
+
+    $state = New-Object System.Collections.Specialized.OrderedDictionary
+    $state["Language"] = [string]$currentLang
+    $state["MaxMemoryGB"] = [double]$ui.MaxMemoryGB.Value
+    $state["HardMemoryGB"] = [double]$ui.HardMemoryGB.Value
+    $state["PreWarnMemoryGB"] = [double]$ui.PreWarnMemoryGB.Value
+    $state["AdaptiveLeadMinMinutes"] = [int]$ui.AdaptiveLeadMinMinutes.Value
+    $state["AdaptiveLeadMaxMinutes"] = [int]$ui.AdaptiveLeadMaxMinutes.Value
+    $state["CheckIntervalSec"] = [int]$ui.CheckIntervalSec.Value
+    $state["WarmupSec"] = [int]$ui.WarmupSec.Value
+    $state["StartupDelaySec"] = [int]$ui.StartupDelaySec.Value
+    $state["FlushSettleSec"] = [int]$ui.FlushSettleSec.Value
+    $state["StopGraceSec"] = [int]$ui.StopGraceSec.Value
+    $state["ResumeCommands"] = [string]$ui.ResumeCommands.Text
+    $state["GuiMode"] = [bool]$ui.GuiMode.Checked
+    $state["BroadcastEnabled"] = [bool]$ui.BroadcastEnabled.Checked
+    $state["PreWarnProjectionEnabled"] = [bool]$ui.PreWarnProjectionEnabled.Checked
+    $state["StopExistingServer"] = [bool]$ui.StopExistingServer.Checked
+    $state["AverageWindowChecks"] = [int]$ui.AverageWindowChecks.Value
+    $state["MinConsecutiveAboveThreshold"] = [int]$ui.MinConsecutiveAboveThreshold.Value
+    $state["StopTimeoutSec"] = [int]$ui.StopTimeoutSec.Value
+    $state["ProjectionMinRamPrivateGB"] = [double]$ui.ProjectionMinRamPrivateGB.Value
+    $state["LowEtaConsecutiveChecks"] = [int]$ui.LowEtaConsecutiveChecks.Value
+    $state["TrendSourceMode"] = $trendValue
+    $state["BroadcastPrefix"] = [string]$ui.BroadcastPrefix.Text
+    $state["LogFile"] = [string]$ui.LogFile.Text
+    $state["LockFile"] = [string]$ui.LockFile.Text
+    $state["JvmXmsGB"] = [double]$ui.JvmXmsGB.Value
+    $state["JvmXmxGB"] = [double]$ui.JvmXmxGB.Value
+    $state["JvmPreset"] = $presetValue
+    $state["ApplyJvmArgs"] = [bool]$ui.ApplyJvmArgs.Checked
+    $state["ExtraJvmArgs"] = [string]$ui.ExtraJvmArgs.Text
+    $state["SelectedCustomProfile"] = $selectedCustom
+    $state["CustomProfileName"] = [string]$ui.CustomProfileName.Text
+    return $state
+}
+
+function Apply-UiState {
+    param($State)
+    if ($null -eq $State) { return }
+
+    $savedLanguage = [string](Get-StateValue -State $State -Key "Language" -Default "")
+    if ($i18n.ContainsKey($savedLanguage)) {
+        $currentLang = $savedLanguage
+        try { $langCombo.SelectedValue = $savedLanguage } catch {}
+    }
+
+    Set-NumericControlValue -Control $ui.MaxMemoryGB -Value (ConvertTo-DoubleSafe (Get-StateValue $State "MaxMemoryGB" $ui.MaxMemoryGB.Value) $ui.MaxMemoryGB.Value)
+    Set-NumericControlValue -Control $ui.HardMemoryGB -Value (ConvertTo-DoubleSafe (Get-StateValue $State "HardMemoryGB" $ui.HardMemoryGB.Value) $ui.HardMemoryGB.Value)
+    Set-NumericControlValue -Control $ui.PreWarnMemoryGB -Value (ConvertTo-DoubleSafe (Get-StateValue $State "PreWarnMemoryGB" $ui.PreWarnMemoryGB.Value) $ui.PreWarnMemoryGB.Value)
+    Set-NumericControlValue -Control $ui.AdaptiveLeadMinMinutes -Value (ConvertTo-IntSafe (Get-StateValue $State "AdaptiveLeadMinMinutes" $ui.AdaptiveLeadMinMinutes.Value) $ui.AdaptiveLeadMinMinutes.Value)
+    Set-NumericControlValue -Control $ui.AdaptiveLeadMaxMinutes -Value (ConvertTo-IntSafe (Get-StateValue $State "AdaptiveLeadMaxMinutes" $ui.AdaptiveLeadMaxMinutes.Value) $ui.AdaptiveLeadMaxMinutes.Value)
+    Set-NumericControlValue -Control $ui.CheckIntervalSec -Value (ConvertTo-IntSafe (Get-StateValue $State "CheckIntervalSec" $ui.CheckIntervalSec.Value) $ui.CheckIntervalSec.Value)
+    Set-NumericControlValue -Control $ui.WarmupSec -Value (ConvertTo-IntSafe (Get-StateValue $State "WarmupSec" $ui.WarmupSec.Value) $ui.WarmupSec.Value)
+    Set-NumericControlValue -Control $ui.StartupDelaySec -Value (ConvertTo-IntSafe (Get-StateValue $State "StartupDelaySec" $ui.StartupDelaySec.Value) $ui.StartupDelaySec.Value)
+    Set-NumericControlValue -Control $ui.FlushSettleSec -Value (ConvertTo-IntSafe (Get-StateValue $State "FlushSettleSec" $ui.FlushSettleSec.Value) $ui.FlushSettleSec.Value)
+    Set-NumericControlValue -Control $ui.StopGraceSec -Value (ConvertTo-IntSafe (Get-StateValue $State "StopGraceSec" $ui.StopGraceSec.Value) $ui.StopGraceSec.Value)
+    Set-NumericControlValue -Control $ui.AverageWindowChecks -Value (ConvertTo-IntSafe (Get-StateValue $State "AverageWindowChecks" $ui.AverageWindowChecks.Value) $ui.AverageWindowChecks.Value)
+    Set-NumericControlValue -Control $ui.MinConsecutiveAboveThreshold -Value (ConvertTo-IntSafe (Get-StateValue $State "MinConsecutiveAboveThreshold" $ui.MinConsecutiveAboveThreshold.Value) $ui.MinConsecutiveAboveThreshold.Value)
+    Set-NumericControlValue -Control $ui.StopTimeoutSec -Value (ConvertTo-IntSafe (Get-StateValue $State "StopTimeoutSec" $ui.StopTimeoutSec.Value) $ui.StopTimeoutSec.Value)
+    Set-NumericControlValue -Control $ui.ProjectionMinRamPrivateGB -Value (ConvertTo-DoubleSafe (Get-StateValue $State "ProjectionMinRamPrivateGB" $ui.ProjectionMinRamPrivateGB.Value) $ui.ProjectionMinRamPrivateGB.Value)
+    Set-NumericControlValue -Control $ui.LowEtaConsecutiveChecks -Value (ConvertTo-IntSafe (Get-StateValue $State "LowEtaConsecutiveChecks" $ui.LowEtaConsecutiveChecks.Value) $ui.LowEtaConsecutiveChecks.Value)
+    Set-NumericControlValue -Control $ui.JvmXmsGB -Value (ConvertTo-DoubleSafe (Get-StateValue $State "JvmXmsGB" $ui.JvmXmsGB.Value) $ui.JvmXmsGB.Value)
+    Set-NumericControlValue -Control $ui.JvmXmxGB -Value (ConvertTo-DoubleSafe (Get-StateValue $State "JvmXmxGB" $ui.JvmXmxGB.Value) $ui.JvmXmxGB.Value)
+
+    $ui.ResumeCommands.Text = [string](Get-StateValue -State $State -Key "ResumeCommands" -Default $ui.ResumeCommands.Text)
+    $ui.BroadcastPrefix.Text = [string](Get-StateValue -State $State -Key "BroadcastPrefix" -Default $ui.BroadcastPrefix.Text)
+    $ui.LogFile.Text = [string](Get-StateValue -State $State -Key "LogFile" -Default $ui.LogFile.Text)
+    $ui.LockFile.Text = [string](Get-StateValue -State $State -Key "LockFile" -Default $ui.LockFile.Text)
+    $ui.ExtraJvmArgs.Text = [string](Get-StateValue -State $State -Key "ExtraJvmArgs" -Default $ui.ExtraJvmArgs.Text)
+    $customName = [string](Get-StateValue -State $State -Key "CustomProfileName" -Default $ui.CustomProfileName.Text)
+    $customName = Normalize-CustomProfileSelection -Value $customName
+    $ui.CustomProfileName.Text = $customName
+
+    $ui.GuiMode.Checked = ConvertTo-Bool -Value (Get-StateValue -State $State -Key "GuiMode" -Default $ui.GuiMode.Checked) -Default $ui.GuiMode.Checked
+    $ui.BroadcastEnabled.Checked = ConvertTo-Bool -Value (Get-StateValue -State $State -Key "BroadcastEnabled" -Default $ui.BroadcastEnabled.Checked) -Default $ui.BroadcastEnabled.Checked
+    $ui.PreWarnProjectionEnabled.Checked = ConvertTo-Bool -Value (Get-StateValue -State $State -Key "PreWarnProjectionEnabled" -Default $ui.PreWarnProjectionEnabled.Checked) -Default $ui.PreWarnProjectionEnabled.Checked
+    $ui.StopExistingServer.Checked = ConvertTo-Bool -Value (Get-StateValue -State $State -Key "StopExistingServer" -Default $ui.StopExistingServer.Checked) -Default $ui.StopExistingServer.Checked
+    $ui.ApplyJvmArgs.Checked = ConvertTo-Bool -Value (Get-StateValue -State $State -Key "ApplyJvmArgs" -Default $ui.ApplyJvmArgs.Checked) -Default $ui.ApplyJvmArgs.Checked
+
+    $savedTrend = [string](Get-StateValue -State $State -Key "TrendSourceMode" -Default "hybrid")
+    $savedPreset = Resolve-JvmPreset -Preset (Get-StateValue -State $State -Key "JvmPreset" -Default "balanced")
+    try { $ui.TrendSourceMode.SelectedValue = $savedTrend } catch {}
+    try { $ui.JvmPreset.SelectedValue = $savedPreset } catch {}
+    if ($ui.TrendSourceMode.SelectedIndex -lt 0 -and $ui.TrendSourceMode.Items.Count -gt 0) { $ui.TrendSourceMode.SelectedIndex = 0 }
+    if ($ui.JvmPreset.SelectedIndex -lt 0 -and $ui.JvmPreset.Items.Count -gt 0) { $ui.JvmPreset.SelectedIndex = 0 }
+
+    $savedCustom = Normalize-CustomProfileSelection -Value ([string](Get-StateValue -State $State -Key "SelectedCustomProfile" -Default ""))
+    if ($null -ne $ui.CustomProfileList) {
+        try { $ui.CustomProfileList.SelectedValue = $savedCustom } catch {}
+    }
+
+    Apply-Language
+}
+
+function Load-SettingsFile {
+    $settingsPath = Get-SettingsFilePath
+    if (-not (Test-Path -Path $settingsPath)) {
+        return $null
+    }
+    try {
+        $rawText = Get-Content -Path $settingsPath -Raw -Encoding UTF8
+        if ([string]::IsNullOrWhiteSpace($rawText)) {
+            return $null
+        }
+
+        $parsed = ConvertFrom-JsonCompat -JsonText $rawText
+        if ($null -eq $parsed) {
+            return $null
+        }
+
+        $profiles = New-Object System.Collections.ArrayList
+        foreach ($profile in @($parsed.customProfiles)) {
+            $name = [string](Get-StateValue -State $profile -Key "name" -Default "")
+            $state = Get-StateValue -State $profile -Key "state" -Default $null
+            if ([string]::IsNullOrWhiteSpace($name) -or $null -eq $state) {
+                continue
+            }
+            [void]$profiles.Add([pscustomobject]@{
+                name = $name
+                state = $state
+            })
+        }
+
+        return [pscustomobject]@{
+            schemaVersion = ConvertTo-IntSafe -Value (Get-StateValue -State $parsed -Key "schemaVersion" -Default 1) -Default 1
+            selectedRecommendationProfile = Resolve-JvmPreset -Preset (Get-StateValue -State $parsed -Key "selectedRecommendationProfile" -Default "balanced")
+            selectedCustomProfile = Normalize-CustomProfileSelection -Value ([string](Get-StateValue -State $parsed -Key "selectedCustomProfile" -Default ""))
+            lastState = Get-StateValue -State $parsed -Key "lastState" -Default $null
+            customProfiles = $profiles
+        }
+    } catch {
+        Write-LauncherLog "Failed to load settings from '$settingsPath': $($_.Exception.Message)"
+        return $null
+    }
+}
+
+function Save-SettingsFile {
+    $settingsPath = Get-SettingsFilePath
+    $settingsDir = Split-Path -Path $settingsPath -Parent
+    if (-not (Test-Path -Path $settingsDir)) {
+        New-Item -Path $settingsDir -ItemType Directory -Force | Out-Null
+    }
+
+    $customOut = New-Object System.Collections.Generic.List[object]
+    foreach ($profile in @($script:customProfiles)) {
+        $name = [string](Get-StateValue -State $profile -Key "name" -Default "")
+        $state = Get-StateValue -State $profile -Key "state" -Default $null
+        if ([string]::IsNullOrWhiteSpace($name) -or $null -eq $state) {
+            continue
+        }
+        $customOut.Add([ordered]@{
+            name = $name
+            state = $state
+        })
+    }
+
+    $selectedRecommendationProfile = Resolve-JvmPreset -Preset (Get-ComboSelectedValue -Combo $ui.JvmPreset -DefaultValue "balanced")
+    $selectedCustomProfile = Normalize-CustomProfileSelection -Value ([string](Get-ComboSelectedValue -Combo $ui.CustomProfileList -DefaultValue ""))
+    $lastState = Get-UiState
+    $customProfilesArray = $customOut.ToArray()
+
+    $payload = New-Object System.Collections.Specialized.OrderedDictionary
+    $payload["schemaVersion"] = [int]$script:settingsSchemaVersion
+    $payload["selectedRecommendationProfile"] = [string]$selectedRecommendationProfile
+    $payload["selectedCustomProfile"] = [string]$selectedCustomProfile
+    $payload["lastState"] = $lastState
+    $payload["customProfiles"] = $customProfilesArray
+    $payload["updatedAt"] = (Get-Date).ToString("o")
+
+    $json = $payload | ConvertTo-Json -Depth 64
+    $tmpPath = "$settingsPath.tmp"
+    Set-Content -Path $tmpPath -Value $json -Encoding UTF8
+    try {
+        Move-Item -Path $tmpPath -Destination $settingsPath -Force
+    } catch {
+        Copy-Item -Path $tmpPath -Destination $settingsPath -Force
+        Remove-Item -Path $tmpPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Save-SettingsSafe {
+    try {
+        $script:lastSettingsSaveError = ""
+        Save-SettingsFile
+        return $true
+    } catch {
+        $ex = $_.Exception
+        $script:lastSettingsSaveError = if ($null -ne $ex -and -not [string]::IsNullOrWhiteSpace($ex.Message)) { $ex.Message } else { "unknown error" }
+        $details = @()
+        $details += "Failed to save settings: $($ex.Message)"
+        if ($null -ne $ex) {
+            $details += "ExceptionType: $($ex.GetType().FullName)"
+            if ($null -ne $ex.InnerException) {
+                $details += "InnerException: $($ex.InnerException.GetType().FullName): $($ex.InnerException.Message)"
+            }
+            if (-not [string]::IsNullOrWhiteSpace($ex.StackTrace)) {
+                $details += "StackTrace: $($ex.StackTrace)"
+            }
+        }
+        if (-not [string]::IsNullOrWhiteSpace($_.ScriptStackTrace)) {
+            $details += "ScriptStackTrace: $($_.ScriptStackTrace)"
+        }
+        Write-LauncherLog ($details -join " | ")
+        return $false
+    }
+}
+
+function Refresh-CustomProfileList {
+    param([string]$SelectedName = "")
+    if ($null -eq $ui.CustomProfileList) { return }
+    $SelectedName = Normalize-CustomProfileSelection -Value $SelectedName
+
+    $items = New-Object System.Collections.Generic.List[object]
+    $items.Add([ordered]@{ Display = (T "cp_none"); Value = "" })
+
+    $sorted = @($script:customProfiles | Sort-Object -Property name)
+    foreach ($profile in $sorted) {
+        $name = [string](Get-StateValue -State $profile -Key "name" -Default "")
+        if ([string]::IsNullOrWhiteSpace($name)) { continue }
+        $items.Add([ordered]@{ Display = $name; Value = $name })
+    }
+
+    if ([string]::IsNullOrWhiteSpace($SelectedName)) {
+        $SelectedName = Normalize-CustomProfileSelection -Value (Get-ComboSelectedValue -Combo $ui.CustomProfileList -DefaultValue "")
+    }
+
+    Set-ComboOptions -Combo $ui.CustomProfileList -Items ($items.ToArray()) -SelectedValue $SelectedName
+    if ($ui.CustomProfileList.SelectedIndex -lt 0 -and $ui.CustomProfileList.Items.Count -gt 0) {
+        $ui.CustomProfileList.SelectedIndex = 0
+    }
+}
+
+function Save-CustomProfile {
+    $name = [string]$ui.CustomProfileName.Text
+    $name = $name.Trim()
+    if ([string]::IsNullOrWhiteSpace($name)) {
+        [System.Windows.Forms.MessageBox]::Show((T "m_profile_name_req"), (T "w"), "OK", "Warning") | Out-Null
+        return
+    }
+
+    try {
+        $state = Get-UiState
+        for ($i = $script:customProfiles.Count - 1; $i -ge 0; $i--) {
+            $existingName = [string](Get-StateValue -State $script:customProfiles[$i] -Key "name" -Default "")
+            if ([string]::Equals($existingName, $name, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $script:customProfiles.RemoveAt($i)
+            }
+        }
+        [void]$script:customProfiles.Add([pscustomobject]@{
+            name = $name
+            state = $state
+        })
+        Refresh-CustomProfileList -SelectedName $name
+        $ui.CustomProfileName.Text = $name
+        if (-not (Save-SettingsSafe)) {
+            throw (Tf "m_settings_savef" @($script:lastSettingsSaveError))
+        }
+        [System.Windows.Forms.MessageBox]::Show((Tf "m_profile_saved" @($name)), (T "ok"), "OK", "Information") | Out-Null
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show((Tf "m_profile_savef" @($_.Exception.Message)), (T "e"), "OK", "Error") | Out-Null
+    }
+}
+
+function Load-CustomProfile {
+    $selectedName = Normalize-CustomProfileSelection -Value ([string](Get-ComboSelectedValue -Combo $ui.CustomProfileList -DefaultValue ""))
+    if ([string]::IsNullOrWhiteSpace($selectedName)) {
+        [System.Windows.Forms.MessageBox]::Show((T "m_profile_load_missing"), (T "w"), "OK", "Warning") | Out-Null
+        return
+    }
+    try {
+        $selected = $null
+        foreach ($profile in @($script:customProfiles)) {
+            $profileName = [string](Get-StateValue -State $profile -Key "name" -Default "")
+            if ([string]::Equals($profileName, $selectedName, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $selected = $profile
+                break
+            }
+        }
+        if ($null -eq $selected) {
+            throw "Profile not found: $selectedName"
+        }
+
+        Apply-UiState -State (Get-StateValue -State $selected -Key "state" -Default $null)
+        Refresh-CustomProfileList -SelectedName $selectedName
+        $ui.CustomProfileName.Text = $selectedName
+        Update-Preview
+        if (-not (Save-SettingsSafe)) {
+            throw (Tf "m_settings_savef" @($script:lastSettingsSaveError))
+        }
+        [System.Windows.Forms.MessageBox]::Show((Tf "m_profile_loaded" @($selectedName)), (T "ok"), "OK", "Information") | Out-Null
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show((Tf "m_profile_loadf" @($_.Exception.Message)), (T "e"), "OK", "Error") | Out-Null
+    }
+}
+
+function Delete-CustomProfile {
+    $selectedName = Normalize-CustomProfileSelection -Value ([string](Get-ComboSelectedValue -Combo $ui.CustomProfileList -DefaultValue ""))
+    if ([string]::IsNullOrWhiteSpace($selectedName)) {
+        [System.Windows.Forms.MessageBox]::Show((T "m_profile_delete_missing"), (T "w"), "OK", "Warning") | Out-Null
+        return
+    }
+    try {
+        $removed = $false
+        for ($i = $script:customProfiles.Count - 1; $i -ge 0; $i--) {
+            $profileName = [string](Get-StateValue -State $script:customProfiles[$i] -Key "name" -Default "")
+            if ([string]::Equals($profileName, $selectedName, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $script:customProfiles.RemoveAt($i)
+                $removed = $true
+            }
+        }
+        if (-not $removed) {
+            throw "Profile not found: $selectedName"
+        }
+        Refresh-CustomProfileList -SelectedName ""
+        $ui.CustomProfileName.Text = ""
+        if (-not (Save-SettingsSafe)) {
+            throw (Tf "m_settings_savef" @($script:lastSettingsSaveError))
+        }
+        [System.Windows.Forms.MessageBox]::Show((Tf "m_profile_deleted" @($selectedName)), (T "ok"), "OK", "Information") | Out-Null
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show((Tf "m_profile_deletef" @($_.Exception.Message)), (T "e"), "OK", "Error") | Out-Null
+    }
 }
 
 function Get-Recommendation {
@@ -523,6 +1018,18 @@ function Get-Recommendation {
 
     $xmxTarget = [int]$tier[$preset]
     $xmx = [int][math]::Max(6, [math]::Min($xmxTarget, $maxPracticalXmx))
+    return Get-RecommendationFromXmx -XmxGB $xmx -JvmPreset $preset
+}
+
+function Get-RecommendationFromXmx {
+    param(
+        [double]$XmxGB,
+        [string]$JvmPreset = "balanced"
+    )
+
+    $preset = Resolve-JvmPreset -Preset $JvmPreset
+    $xmx = ConvertTo-IntSafe -Value $XmxGB -Default 12
+    if ($xmx -lt 2) { $xmx = 2 }
 
     $xmsRatio = 0.40
     $xmsMin = 4
@@ -634,6 +1141,38 @@ function Get-Recommendation {
         TrendSourceMode = $trendMode
         JvmPreset = $preset
     }
+}
+
+function Apply-RecommendationResult {
+    param(
+        $Recommendation,
+        [switch]$KeepJvmRam
+    )
+    if ($null -eq $Recommendation) { return }
+    if (-not $KeepJvmRam) {
+        $ui.JvmXmsGB.Value = [decimal]$Recommendation.Xms
+        $ui.JvmXmxGB.Value = [decimal]$Recommendation.Xmx
+    }
+    $ui.MaxMemoryGB.Value = [decimal]$Recommendation.Soft
+    $ui.HardMemoryGB.Value = [decimal]$Recommendation.Hard
+    $ui.PreWarnMemoryGB.Value = [decimal]$Recommendation.PreWarn
+    $ui.ProjectionMinRamPrivateGB.Value = [decimal]$Recommendation.ProjectionMinPrivate
+    $ui.CheckIntervalSec.Value = [decimal]$Recommendation.CheckIntervalSec
+    $ui.WarmupSec.Value = [decimal]$Recommendation.WarmupSec
+    $ui.StartupDelaySec.Value = [decimal]$Recommendation.StartupDelaySec
+    $ui.FlushSettleSec.Value = [decimal]$Recommendation.FlushSettleSec
+    $ui.StopGraceSec.Value = [decimal]$Recommendation.StopGraceSec
+    $ui.AverageWindowChecks.Value = [decimal]$Recommendation.AverageWindowChecks
+    $ui.MinConsecutiveAboveThreshold.Value = [decimal]$Recommendation.MinConsecutiveAboveThreshold
+    $ui.LowEtaConsecutiveChecks.Value = [decimal]$Recommendation.LowEtaConsecutiveChecks
+    $ui.AdaptiveLeadMinMinutes.Value = [decimal]$Recommendation.AdaptiveLeadMinMinutes
+    $ui.AdaptiveLeadMaxMinutes.Value = [decimal]$Recommendation.AdaptiveLeadMaxMinutes
+    $ui.PreWarnProjectionEnabled.Checked = $true
+    $ui.BroadcastEnabled.Checked = $true
+    $ui.StopExistingServer.Checked = $true
+    $ui.ApplyJvmArgs.Checked = $true
+    $ui.TrendSourceMode.SelectedValue = $Recommendation.TrendSourceMode
+    $ui.JvmPreset.SelectedValue = $Recommendation.JvmPreset
 }
 
 function Get-JvmPresetArgs {
@@ -817,31 +1356,11 @@ function Update-Preview {
 function Apply-Recommendation {
     param(
         [double]$TotalRamGB,
-        [string]$JvmPreset = "balanced"
+        [string]$JvmPreset = "balanced",
+        [switch]$KeepJvmRam
     )
     $r = Get-Recommendation -TotalRamGB $TotalRamGB -JvmPreset $JvmPreset
-    $ui.JvmXmsGB.Value = [decimal]$r.Xms
-    $ui.JvmXmxGB.Value = [decimal]$r.Xmx
-    $ui.MaxMemoryGB.Value = [decimal]$r.Soft
-    $ui.HardMemoryGB.Value = [decimal]$r.Hard
-    $ui.PreWarnMemoryGB.Value = [decimal]$r.PreWarn
-    $ui.ProjectionMinRamPrivateGB.Value = [decimal]$r.ProjectionMinPrivate
-    $ui.CheckIntervalSec.Value = [decimal]$r.CheckIntervalSec
-    $ui.WarmupSec.Value = [decimal]$r.WarmupSec
-    $ui.StartupDelaySec.Value = [decimal]$r.StartupDelaySec
-    $ui.FlushSettleSec.Value = [decimal]$r.FlushSettleSec
-    $ui.StopGraceSec.Value = [decimal]$r.StopGraceSec
-    $ui.AverageWindowChecks.Value = [decimal]$r.AverageWindowChecks
-    $ui.MinConsecutiveAboveThreshold.Value = [decimal]$r.MinConsecutiveAboveThreshold
-    $ui.LowEtaConsecutiveChecks.Value = [decimal]$r.LowEtaConsecutiveChecks
-    $ui.AdaptiveLeadMinMinutes.Value = [decimal]$r.AdaptiveLeadMinMinutes
-    $ui.AdaptiveLeadMaxMinutes.Value = [decimal]$r.AdaptiveLeadMaxMinutes
-    $ui.PreWarnProjectionEnabled.Checked = $true
-    $ui.BroadcastEnabled.Checked = $true
-    $ui.StopExistingServer.Checked = $true
-    $ui.ApplyJvmArgs.Checked = $true
-    $ui.TrendSourceMode.SelectedValue = $r.TrendSourceMode
-    $ui.JvmPreset.SelectedValue = $r.JvmPreset
+    Apply-RecommendationResult -Recommendation $r -KeepJvmRam:$KeepJvmRam
 }
 
 function Apply-Language {
@@ -852,6 +1371,13 @@ function Apply-Language {
     $tabJava.Text = T "tab3"
     $lblLanguage.Text = T "lang"
     $btnRecommended.Text = T "rec"
+    $lblRecommendationProfile.Text = T "recprof"
+    $lblCustomProfiles.Text = T "custprof"
+    $lblProfileName.Text = T "profname"
+    $btnProfileSave.Text = T "profsave"
+    $btnProfileLoad.Text = T "profload"
+    $btnProfileDelete.Text = T "profdel"
+    $btnApplyFromRam.Text = T "applyram"
     $btnStart.Text = T "start"
     $btnStopRunning.Text = T "stoprun"
     $btnSaveBat.Text = T "save"
@@ -876,6 +1402,8 @@ function Apply-Language {
     Set-ComboOptions -Combo $ui.TrendSourceMode -Items (Get-TrendModeOptions) -SelectedValue $trend
     $jp = Resolve-JvmPreset -Preset (Get-ComboSelectedValue -Combo $ui.JvmPreset -DefaultValue "balanced")
     Set-ComboOptions -Combo $ui.JvmPreset -Items (Get-JvmPresetOptions) -SelectedValue $jp
+    $selectedCustom = Get-ComboSelectedValue -Combo $ui.CustomProfileList -DefaultValue ""
+    Refresh-CustomProfileList -SelectedName $selectedCustom
 
     Update-Preview
 }
@@ -889,13 +1417,16 @@ $root = New-Object System.Windows.Forms.TableLayoutPanel
 $root.Dock = "Fill"
 $root.AutoScroll = $true
 $root.ColumnCount = 1
-$root.RowCount = 5
+$root.RowCount = 6
+[void]$root.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::AutoSize)))
 [void]$root.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::AutoSize)))
 [void]$root.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::AutoSize)))
 [void]$root.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 100)))
 [void]$root.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::AutoSize)))
 [void]$root.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::AutoSize)))
 [void]$form.Controls.Add($root)
+
+$ui = [ordered]@{}
 
 $topBar = New-Object System.Windows.Forms.FlowLayoutPanel
 $topBar.FlowDirection = "LeftToRight"
@@ -919,6 +1450,16 @@ $btnRecommended = New-Object System.Windows.Forms.Button
 $btnRecommended.AutoSize = $true
 $btnRecommended.Margin = New-Object System.Windows.Forms.Padding(18, 3, 3, 3)
 
+$lblRecommendationProfile = New-Object System.Windows.Forms.Label
+$lblRecommendationProfile.AutoSize = $true
+$lblRecommendationProfile.Margin = New-Object System.Windows.Forms.Padding(12, 8, 6, 3)
+
+$ui.JvmPreset = New-Object System.Windows.Forms.ComboBox
+$ui.JvmPreset.Width = 230
+$ui.JvmPreset.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+Set-ComboOptions -Combo $ui.JvmPreset -Items (Get-JvmPresetOptions) -SelectedValue "balanced"
+$ui.JvmPreset.Margin = New-Object System.Windows.Forms.Padding(0, 3, 3, 3)
+
 $systemRamGB = Get-SystemTotalRamGB
 $systemRamLabel = New-Object System.Windows.Forms.Label
 $systemRamLabel.AutoSize = $true
@@ -928,19 +1469,65 @@ $systemRamLabel.ForeColor = [System.Drawing.Color]::DimGray
 [void]$topBar.Controls.Add($lblLanguage)
 [void]$topBar.Controls.Add($langCombo)
 [void]$topBar.Controls.Add($btnRecommended)
+[void]$topBar.Controls.Add($lblRecommendationProfile)
+[void]$topBar.Controls.Add($ui.JvmPreset)
 [void]$topBar.Controls.Add($systemRamLabel)
 [void]$root.Controls.Add($topBar, 0, 0)
+
+$profileBar = New-Object System.Windows.Forms.FlowLayoutPanel
+$profileBar.FlowDirection = "LeftToRight"
+$profileBar.AutoSize = $true
+$profileBar.WrapContents = $false
+$profileBar.Margin = New-Object System.Windows.Forms.Padding(10, 6, 10, 0)
+
+$lblCustomProfiles = New-Object System.Windows.Forms.Label
+$lblCustomProfiles.AutoSize = $true
+$lblCustomProfiles.Margin = New-Object System.Windows.Forms.Padding(3, 8, 6, 3)
+
+$ui.CustomProfileList = New-Object System.Windows.Forms.ComboBox
+$ui.CustomProfileList.Width = 220
+$ui.CustomProfileList.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+$ui.CustomProfileList.Margin = New-Object System.Windows.Forms.Padding(0, 3, 10, 3)
+Set-ComboOptions -Combo $ui.CustomProfileList -Items @(@{ Display = "(none)"; Value = "" }) -SelectedValue ""
+
+$lblProfileName = New-Object System.Windows.Forms.Label
+$lblProfileName.AutoSize = $true
+$lblProfileName.Margin = New-Object System.Windows.Forms.Padding(3, 8, 6, 3)
+
+$ui.CustomProfileName = New-TextBox -Text "" -Width 200
+$ui.CustomProfileName.Margin = New-Object System.Windows.Forms.Padding(0, 3, 10, 3)
+
+$btnProfileSave = New-Object System.Windows.Forms.Button
+$btnProfileSave.AutoSize = $true
+$btnProfileSave.Margin = New-Object System.Windows.Forms.Padding(0, 3, 6, 3)
+
+$btnProfileLoad = New-Object System.Windows.Forms.Button
+$btnProfileLoad.AutoSize = $true
+$btnProfileLoad.Margin = New-Object System.Windows.Forms.Padding(0, 3, 6, 3)
+
+$btnProfileDelete = New-Object System.Windows.Forms.Button
+$btnProfileDelete.AutoSize = $true
+$btnProfileDelete.Margin = New-Object System.Windows.Forms.Padding(0, 3, 6, 3)
+
+[void]$profileBar.Controls.Add($lblCustomProfiles)
+[void]$profileBar.Controls.Add($ui.CustomProfileList)
+[void]$profileBar.Controls.Add($lblProfileName)
+[void]$profileBar.Controls.Add($ui.CustomProfileName)
+[void]$profileBar.Controls.Add($btnProfileSave)
+[void]$profileBar.Controls.Add($btnProfileLoad)
+[void]$profileBar.Controls.Add($btnProfileDelete)
+[void]$root.Controls.Add($profileBar, 0, 1)
 
 $header = New-Object System.Windows.Forms.Label
 $header.AutoSize = $true
 $header.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
 $header.Margin = New-Object System.Windows.Forms.Padding(10, 10, 10, 10)
-[void]$root.Controls.Add($header, 0, 1)
+[void]$root.Controls.Add($header, 0, 2)
 
 $tabs = New-Object System.Windows.Forms.TabControl
 $tabs.Dock = "Fill"
 $tabs.Margin = New-Object System.Windows.Forms.Padding(10, 0, 10, 0)
-[void]$root.Controls.Add($tabs, 0, 2)
+[void]$root.Controls.Add($tabs, 0, 3)
 
 $tabMain = New-Object System.Windows.Forms.TabPage
 $tabAdv = New-Object System.Windows.Forms.TabPage
@@ -974,7 +1561,6 @@ $gridJava.Dock = "Fill"; $gridJava.AutoScroll = $true; $gridJava.ColumnCount = 3
 [void]$tabJava.Controls.Add($gridJava)
 
 $rowRegistry = New-Object System.Collections.ArrayList
-$ui = [ordered]@{}
 $ui.MaxMemoryGB = New-Numeric -Value 20 -Minimum 4 -Maximum 96 -DecimalPlaces 1; Add-LocalizedRow -Panel $gridMain -Control $ui.MaxMemoryGB -LabelKey "l_soft" -HelpKey "h_soft" -Registry $rowRegistry
 $ui.HardMemoryGB = New-Numeric -Value 22 -Minimum 4 -Maximum 96 -DecimalPlaces 1; Add-LocalizedRow -Panel $gridMain -Control $ui.HardMemoryGB -LabelKey "l_hard" -HelpKey "h_hard" -Registry $rowRegistry
 $ui.PreWarnMemoryGB = New-Numeric -Value 17.5 -Minimum 4 -Maximum 96 -DecimalPlaces 1; Add-LocalizedRow -Panel $gridMain -Control $ui.PreWarnMemoryGB -LabelKey "l_prew" -HelpKey "h_prew" -Registry $rowRegistry
@@ -1005,9 +1591,8 @@ $ui.LockFile = New-TextBox -Text "logs/chunky-autorestart.lock" -Width 280; Add-
 
 $ui.JvmXmsGB = New-Numeric -Value 4 -Minimum 1 -Maximum 96; Add-LocalizedRow -Panel $gridJava -Control $ui.JvmXmsGB -LabelKey "l_xms" -HelpKey "h_xms" -Registry $rowRegistry
 $ui.JvmXmxGB = New-Numeric -Value 24 -Minimum 2 -Maximum 128; Add-LocalizedRow -Panel $gridJava -Control $ui.JvmXmxGB -LabelKey "l_xmx" -HelpKey "h_xmx" -Registry $rowRegistry
-$ui.JvmPreset = New-Object System.Windows.Forms.ComboBox; $ui.JvmPreset.Width = 280; $ui.JvmPreset.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
-Set-ComboOptions -Combo $ui.JvmPreset -Items (Get-JvmPresetOptions) -SelectedValue "balanced"
-Add-LocalizedRow -Panel $gridJava -Control $ui.JvmPreset -LabelKey "l_jpre" -HelpKey "h_jpre" -Registry $rowRegistry
+$btnApplyFromRam = New-Object System.Windows.Forms.Button; $btnApplyFromRam.AutoSize = $true
+Add-LocalizedRow -Panel $gridJava -Control $btnApplyFromRam -LabelKey "l_ramapply" -HelpKey "h_ramapply" -Registry $rowRegistry
 $ui.ApplyJvmArgs = New-CheckBox -Checked $true; Add-LocalizedRow -Panel $gridJava -Control $ui.ApplyJvmArgs -LabelKey "l_aj" -HelpKey "h_aj" -Registry $rowRegistry
 $ui.ExtraJvmArgs = New-Object System.Windows.Forms.TextBox; $ui.ExtraJvmArgs.Multiline = $true; $ui.ExtraJvmArgs.ScrollBars = "Vertical"; $ui.ExtraJvmArgs.Width = 280; $ui.ExtraJvmArgs.Height = 100; $ui.ExtraJvmArgs.Text = ""
 Add-LocalizedRow -Panel $gridJava -Control $ui.ExtraJvmArgs -LabelKey "l_ex" -HelpKey "h_ex" -Registry $rowRegistry
@@ -1017,12 +1602,12 @@ Add-LocalizedRow -Panel $gridJava -Control $ui.JvmFilePath -LabelKey "l_jf" -Hel
 $preview = New-Object System.Windows.Forms.TextBox
 $preview.Multiline = $true; $preview.ScrollBars = "Vertical"; $preview.ReadOnly = $true; $preview.Dock = "Fill"; $preview.Height = 145
 $preview.Margin = New-Object System.Windows.Forms.Padding(10, 8, 10, 8)
-[void]$root.Controls.Add($preview, 0, 3)
+[void]$root.Controls.Add($preview, 0, 4)
 
 $btnPanel = New-Object System.Windows.Forms.FlowLayoutPanel
 $btnPanel.FlowDirection = "LeftToRight"; $btnPanel.AutoSize = $true; $btnPanel.WrapContents = $false
 $btnPanel.Margin = New-Object System.Windows.Forms.Padding(10, 0, 10, 10)
-[void]$root.Controls.Add($btnPanel, 0, 4)
+[void]$root.Controls.Add($btnPanel, 0, 5)
 
 $btnStart = New-Object System.Windows.Forms.Button; $btnStart.AutoSize = $true
 $btnStopRunning = New-Object System.Windows.Forms.Button; $btnStopRunning.AutoSize = $true
@@ -1060,7 +1645,17 @@ $langCombo.Add_SelectedIndexChanged({
         if ($i18n.ContainsKey($newLang)) {
             $currentLang = $newLang
             Apply-Language
+            [void](Save-SettingsSafe)
         }
+    } catch {
+    }
+})
+
+$ui.CustomProfileList.Add_SelectedIndexChanged({
+    try {
+        $selectedName = Normalize-CustomProfileSelection -Value ([string](Get-ComboSelectedValue -Combo $ui.CustomProfileList -DefaultValue ""))
+        if ([string]::IsNullOrWhiteSpace($selectedName)) { return }
+        $ui.CustomProfileName.Text = $selectedName
     } catch {
     }
 })
@@ -1070,11 +1665,34 @@ $btnRecommended.Add_Click({
         $selectedPreset = Resolve-JvmPreset -Preset (Get-ComboSelectedValue -Combo $ui.JvmPreset -DefaultValue "balanced")
         Apply-Recommendation -TotalRamGB $systemRamGB -JvmPreset $selectedPreset
         Update-Preview
+        [void](Save-SettingsSafe)
         [System.Windows.Forms.MessageBox]::Show((Tf "m_rec" @($systemRamGB)), (T "ok"), "OK", "Information") | Out-Null
     } catch {
         [System.Windows.Forms.MessageBox]::Show((Tf "m_recf" @($_.Exception.Message)), (T "e"), "OK", "Error") | Out-Null
     }
 })
+
+$btnApplyFromRam.Add_Click({
+    try {
+        if ([int]$ui.JvmXmsGB.Value -gt [int]$ui.JvmXmxGB.Value) {
+            [System.Windows.Forms.MessageBox]::Show((T "m_jvm"), (T "w"), "OK", "Warning") | Out-Null
+            return
+        }
+        $selectedPreset = Resolve-JvmPreset -Preset (Get-ComboSelectedValue -Combo $ui.JvmPreset -DefaultValue "balanced")
+        $enteredXmx = [double]$ui.JvmXmxGB.Value
+        $r = Get-RecommendationFromXmx -XmxGB $enteredXmx -JvmPreset $selectedPreset
+        Apply-RecommendationResult -Recommendation $r -KeepJvmRam
+        Update-Preview
+        [void](Save-SettingsSafe)
+        [System.Windows.Forms.MessageBox]::Show((Tf "m_apply_ram" @($enteredXmx)), (T "ok"), "OK", "Information") | Out-Null
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show((Tf "m_apply_ramf" @($_.Exception.Message)), (T "e"), "OK", "Error") | Out-Null
+    }
+})
+
+$btnProfileSave.Add_Click({ Save-CustomProfile })
+$btnProfileLoad.Add_Click({ Load-CustomProfile })
+$btnProfileDelete.Add_Click({ Delete-CustomProfile })
 
 $btnRefresh.Add_Click({ Update-Preview })
 $btnStopRunning.Add_Click({
@@ -1131,6 +1749,7 @@ $btnStopRunning.Add_Click({
 $btnStart.Add_Click({
     try {
         if (-not (Validate-Inputs -ui $ui)) { return }
+        [void](Save-SettingsSafe)
         $statusLabel.ForeColor = [System.Drawing.Color]::DimGray
         $statusLabel.Text = T "s_starting"
 
@@ -1214,19 +1833,53 @@ $btnSaveBat.Add_Click({
         $content.Add("pause")
 
         Set-Content -Path $saveDialog.FileName -Value $content -Encoding ASCII
+        [void](Save-SettingsSafe)
         [System.Windows.Forms.MessageBox]::Show((T "m_bat"), (T "ok"), "OK", "Information") | Out-Null
     } catch {
         [System.Windows.Forms.MessageBox]::Show((Tf "m_batf" @($_.Exception.Message)), (T "e"), "OK", "Error") | Out-Null
     }
 })
 
-try {
-    $initialPreset = Resolve-JvmPreset -Preset (Get-ComboSelectedValue -Combo $ui.JvmPreset -DefaultValue "balanced")
-    Apply-Recommendation -TotalRamGB $systemRamGB -JvmPreset $initialPreset
-} catch {}
+$form.Add_FormClosing({
+    [void](Save-SettingsSafe)
+})
+
+$loadedFromSettings = $false
 Apply-Language
+Refresh-CustomProfileList -SelectedName ""
+
+try {
+    $loadedSettings = Load-SettingsFile
+    if ($null -ne $loadedSettings) {
+        $script:customProfiles = New-Object System.Collections.ArrayList
+        foreach ($profile in @($loadedSettings.customProfiles)) {
+            [void]$script:customProfiles.Add($profile)
+        }
+
+        $savedPreset = Resolve-JvmPreset -Preset ([string]$loadedSettings.selectedRecommendationProfile)
+        try { $ui.JvmPreset.SelectedValue = $savedPreset } catch {}
+
+        Refresh-CustomProfileList -SelectedName ([string]$loadedSettings.selectedCustomProfile)
+        if ($null -ne $loadedSettings.lastState) {
+            Apply-UiState -State $loadedSettings.lastState
+            $loadedFromSettings = $true
+        }
+        if (-not [string]::IsNullOrWhiteSpace([string]$loadedSettings.selectedCustomProfile)) {
+            $ui.CustomProfileName.Text = [string]$loadedSettings.selectedCustomProfile
+        }
+        Update-Preview
+    }
+} catch {
+    Write-LauncherLog "Settings bootstrap failed: $($_.Exception.Message)"
+}
+
+if (-not $loadedFromSettings) {
+    try {
+        $initialPreset = Resolve-JvmPreset -Preset (Get-ComboSelectedValue -Combo $ui.JvmPreset -DefaultValue "balanced")
+        Apply-Recommendation -TotalRamGB $systemRamGB -JvmPreset $initialPreset
+    } catch {}
+    Apply-Language
+    Update-Preview
+}
+
 [void]$form.ShowDialog()
-
-
-
-
