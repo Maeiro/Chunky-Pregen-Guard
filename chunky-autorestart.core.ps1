@@ -16,6 +16,13 @@ param(
     [int]$StopGraceSec = 20,
     [int]$KillVerifyTimeoutSec = 8,
     [int]$KillVerifyPollMs = 300,
+    [int]$SoftCrashDetectionEnabled = 1,
+    [string]$ServerActivityLogPath = "logs/latest.log",
+    [int]$SoftCrashNoProgressSec = 240,
+    [int]$SoftCrashMinUptimeSec = 300,
+    [int]$SoftCrashStableChecks = 12,
+    [double]$SoftCrashMemoryDeltaToleranceGB = 0.05,
+    [double]$SoftCrashMinEffectiveRamGB = 6.0,
     [double]$ProjectionMinRamPrivateGB = 14.0,
     [int]$LowEtaConsecutiveChecks = 3,
     [int]$AdaptiveLeadMinMinutes = 2,
@@ -100,6 +107,49 @@ $restartDelaySecEffective = [Math]::Max(0, $RestartDelaySec)
 $softEffectiveThresholdGB = [Math]::Round($MaxMemoryGB + [Math]::Max(0, $SoftTriggerEffectiveMarginGB), 3)
 $killVerifyTimeoutSecEffective = [Math]::Max(1, $KillVerifyTimeoutSec)
 $killVerifyPollMsEffective = [Math]::Max(100, $KillVerifyPollMs)
+$softCrashNoProgressSecEffective = [Math]::Max($checkIntervalSecEffective * 3, $SoftCrashNoProgressSec)
+$softCrashMinUptimeSecEffective = [Math]::Max($WarmupSec, $SoftCrashMinUptimeSec)
+$softCrashStableChecksEffective = [Math]::Max(2, $SoftCrashStableChecks)
+$softCrashMemoryDeltaToleranceGBEffective = [Math]::Max(0.0, $SoftCrashMemoryDeltaToleranceGB)
+$softCrashMinEffectiveRamGBEffective = [Math]::Max(0.0, $SoftCrashMinEffectiveRamGB)
+
+function Resolve-ActivityLogPath {
+    param([string]$Path)
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return ""
+    }
+    if ([System.IO.Path]::IsPathRooted($Path)) {
+        return $Path
+    }
+    return Join-Path (Get-Location).Path $Path
+}
+
+function Get-FileActivitySignature {
+    param([string]$Path)
+    try {
+        if ([string]::IsNullOrWhiteSpace($Path) -or (-not (Test-Path -Path $Path))) {
+            return [pscustomobject]@{
+                Exists = $false
+                Signature = ""
+                LastWriteTimeUtc = $null
+            }
+        }
+
+        $fi = Get-Item -Path $Path -ErrorAction Stop
+        $signature = "{0}:{1}" -f $fi.Length, $fi.LastWriteTimeUtc.Ticks
+        return [pscustomobject]@{
+            Exists = $true
+            Signature = $signature
+            LastWriteTimeUtc = $fi.LastWriteTimeUtc
+        }
+    } catch {
+        return [pscustomobject]@{
+            Exists = $false
+            Signature = ""
+            LastWriteTimeUtc = $null
+        }
+    }
+}
 
 function Write-Log {
     param([string]$Message)
@@ -698,6 +748,7 @@ Write-Log "Supervisor started. RAM limit=$MaxMemoryGB GB; interval=$checkInterva
 Write-Log "RAM policy: soft(avg+sustained)=$MaxMemoryGB GB; hard(peak)=$HardMemoryGB GB; window=$AverageWindowChecks checks; consecutive=$MinConsecutiveAboveThreshold"
 Write-Log "Startup policy: readySignal=$UseReadySignalForResume; minDelay=${minResumeDelaySec}s; maxDelay=${maxResumeDelaySec}s; restartDelay=${restartDelaySecEffective}s"
 Write-Log "Stop policy: sustainedEffectiveThreshold=$softEffectiveThresholdGB GB; stopGrace=${StopGraceSec}s; killVerify=${killVerifyTimeoutSecEffective}s/${killVerifyPollMsEffective}ms"
+Write-Log "Soft-crash policy: enabled=$SoftCrashDetectionEnabled; activityLog='$ServerActivityLogPath'; noProgress=${softCrashNoProgressSecEffective}s; stableChecks=$softCrashStableChecksEffective; ramDeltaTol=${softCrashMemoryDeltaToleranceGBEffective}GB; minUptime=${softCrashMinUptimeSecEffective}s; minRam=${softCrashMinEffectiveRamGBEffective}GB"
 Write-Log "Ready pattern: $ServerReadyPattern"
 Write-Log "Resume commands: $($resumeCommandList -join ' | ')"
 
@@ -791,6 +842,17 @@ try {
     $memorySamples = New-Object System.Collections.Generic.List[double]
     $consecutiveAboveThreshold = 0
     $lastResumeAt = $null
+    $activityLogPathResolved = Resolve-ActivityLogPath -Path $ServerActivityLogPath
+    $activitySignature = Get-FileActivitySignature -Path $activityLogPathResolved
+    $lastActivitySignature = $activitySignature.Signature
+    $activityLogAvailable = $activitySignature.Exists
+    $lastActivityAt = Get-Date
+    $lastEffectiveMemoryGB = $null
+    $stableMemoryChecks = 0
+
+    if (($SoftCrashDetectionEnabled -eq 1) -and (-not $activityLogAvailable)) {
+        Write-Log "Soft-crash detection warning: activity log not found at '$activityLogPathResolved'. Detection waits for log file creation."
+    }
 
     Write-Log "Server started (PID=$($server.Process.Id)). Waiting for readiness before resuming Chunky."
     $initialResume = Resolve-ResumeResult -Value (Send-ResumeCommands -serverState $server)
@@ -814,6 +876,12 @@ try {
             Write-ManagedPidFile -serverState $server
             $memorySamples = New-Object System.Collections.Generic.List[double]
             $consecutiveAboveThreshold = 0
+            $activitySignature = Get-FileActivitySignature -Path $activityLogPathResolved
+            $lastActivitySignature = $activitySignature.Signature
+            $activityLogAvailable = $activitySignature.Exists
+            $lastActivityAt = Get-Date
+            $lastEffectiveMemoryGB = $null
+            $stableMemoryChecks = 0
 
             Write-Log "Server restarted (PID=$($server.Process.Id)). Waiting for readiness."
             $resumeAfterExit = Resolve-ResumeResult -Value (Send-ResumeCommands -serverState $server)
@@ -833,6 +901,30 @@ try {
         $memoryWsGB = [math]::Round($liveProc.WorkingSet64 / 1GB, 3)
         $memoryPrivateGB = [math]::Round($liveProc.PrivateMemorySize64 / 1GB, 3)
         $memoryEffectiveGB = [math]::Round([Math]::Max($memoryWsGB, $memoryPrivateGB), 3)
+        $memoryDeltaGB = 0.0
+        if ($null -ne $lastEffectiveMemoryGB) {
+            $memoryDeltaGB = [math]::Abs($memoryEffectiveGB - $lastEffectiveMemoryGB)
+            if ($memoryDeltaGB -le $softCrashMemoryDeltaToleranceGBEffective) {
+                $stableMemoryChecks++
+            } else {
+                $stableMemoryChecks = 0
+            }
+        } else {
+            $stableMemoryChecks = 0
+        }
+        $lastEffectiveMemoryGB = $memoryEffectiveGB
+
+        $activityCurrent = Get-FileActivitySignature -Path $activityLogPathResolved
+        if ($activityCurrent.Exists) {
+            if ((-not $activityLogAvailable) -or ($activityCurrent.Signature -ne $lastActivitySignature)) {
+                $lastActivityAt = Get-Date
+                $lastActivitySignature = $activityCurrent.Signature
+            }
+            $activityLogAvailable = $true
+        } else {
+            $activityLogAvailable = $false
+        }
+        $activityIdleSec = if ($activityLogAvailable) { [int]((Get-Date) - $lastActivityAt).TotalSeconds } else { 0 }
 
         $memorySamples.Add($memoryEffectiveGB)
         while ($memorySamples.Count -gt $avgWindow) {
@@ -846,7 +938,7 @@ try {
             $consecutiveAboveThreshold = 0
         }
 
-        Write-Log "Healthcheck: PID=$($proc.Id) RAM_WS=$memoryWsGB GB RAM_PRIVATE=$memoryPrivateGB GB RAM_EFFECTIVE=$memoryEffectiveGB GB AVG_EFFECTIVE=$avgMemoryGB GB AboveSoftSeq=$consecutiveAboveThreshold Uptime=${uptimeSec}s"
+        Write-Log "Healthcheck: PID=$($proc.Id) RAM_WS=$memoryWsGB GB RAM_PRIVATE=$memoryPrivateGB GB RAM_EFFECTIVE=$memoryEffectiveGB GB AVG_EFFECTIVE=$avgMemoryGB GB AboveSoftSeq=$consecutiveAboveThreshold StableMemSeq=$stableMemoryChecks IdleLog=${activityIdleSec}s Uptime=${uptimeSec}s"
 
         if ($uptimeSec -lt $WarmupSec) {
             continue
@@ -856,15 +948,23 @@ try {
         $shouldRestartBySoft = ($avgMemoryGB -ge $MaxMemoryGB) -and
             ($consecutiveAboveThreshold -ge $MinConsecutiveAboveThreshold) -and
             ($memoryEffectiveGB -ge $softEffectiveThresholdGB)
+        $shouldRestartBySoftCrash = ($SoftCrashDetectionEnabled -eq 1) -and
+            $activityLogAvailable -and
+            ($uptimeSec -ge $softCrashMinUptimeSecEffective) -and
+            ($activityIdleSec -ge $softCrashNoProgressSecEffective) -and
+            ($stableMemoryChecks -ge $softCrashStableChecksEffective) -and
+            ($memoryEffectiveGB -ge $softCrashMinEffectiveRamGBEffective)
 
-        if ($shouldRestartByHard -or $shouldRestartBySoft) {
+        if ($shouldRestartByHard -or $shouldRestartBySoft -or $shouldRestartBySoftCrash) {
             $stopRequestedAt = Get-Date
             if ($null -ne $lastResumeAt) {
                 $runToNextStopSec = [math]::Round(($stopRequestedAt - $lastResumeAt).TotalSeconds, 1)
                 Write-Log "CycleSummary: run_to_next_stop_sec=$runToNextStopSec"
             }
 
-            $reason = if ($shouldRestartByHard) {
+            $reason = if ($shouldRestartBySoftCrash) {
+                "Soft-crash suspected: java alive but no activity log progress for ${activityIdleSec}s; stable_mem_checks=$stableMemoryChecks; delta_tol=${softCrashMemoryDeltaToleranceGBEffective}GB; effective=$memoryEffectiveGB GB"
+            } elseif ($shouldRestartByHard) {
                 "RAM spike: effective=$memoryEffectiveGB GB (ws=$memoryWsGB GB; private=$memoryPrivateGB GB; hard=$HardMemoryGB GB)"
             } else {
                 "Sustained RAM: effective=$memoryEffectiveGB GB, avg=$avgMemoryGB GB (soft=$MaxMemoryGB GB; effective_min=$softEffectiveThresholdGB GB)"
@@ -886,6 +986,12 @@ try {
             Write-ManagedPidFile -serverState $server
             $memorySamples = New-Object System.Collections.Generic.List[double]
             $consecutiveAboveThreshold = 0
+            $activitySignature = Get-FileActivitySignature -Path $activityLogPathResolved
+            $lastActivitySignature = $activitySignature.Signature
+            $activityLogAvailable = $activitySignature.Exists
+            $lastActivityAt = Get-Date
+            $lastEffectiveMemoryGB = $null
+            $stableMemoryChecks = 0
 
             Write-Log "Server restarted (PID=$($server.Process.Id)). Waiting for readiness."
             $resumeAfterRestart = Resolve-ResumeResult -Value (Send-ResumeCommands -serverState $server)
